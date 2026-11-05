@@ -1,0 +1,2 @@
+- [SvelteKit 3 setup](sveltekit-v3.md) — current SvelteKit config belongs in `sveltekit()` in Vite, not `svelte.config.js`.
+- [WhatsApp verification logs](whatsapp-webhook-logging.md) — Meta verification sends its token in the URL; redact query values before dev logging.
