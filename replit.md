@@ -22,7 +22,14 @@ Configura valores únicamente mediante Replit Secrets. La aplicación utiliza `D
 
 Para probar firmas contra el servidor de desarrollo, ejecuta `npm run test:webhook`. Usa `WHATSAPP_APP_SECRET` desde Secrets y prueba firmas válidas, incorrectas y ausentes sin mostrar el valor ni la firma.
 
-La aplicación no queda conectada ni publicada en Meta en esta iteración.
+## Estado de configuración de WhatsApp — 5 de noviembre de 2026
+
+- `WHATSAPP_APP_SECRET` se corrigió en Replit Secrets con el App Secret de Meta; no registrar ni copiar su valor.
+- Private preview se desactivó temporalmente para permitir el callback externo. Meta verificó y guardó la URL HTTPS de desarrollo de `/api/whatsapp/webhook`; la URL completa se omite.
+- El campo `messages` de la versión v27.0 quedó suscrito.
+- Un evento de prueba iniciado desde el panel de Meta llegó por POST, pasó la validación de firma y recibió HTTP 200.
+- El endpoint no guardó datos en Neon ni envió una respuesta por WhatsApp.
+- La aplicación permanece sin publicar. Meta advierte que, mientras siga así, solo entrega eventos de prueba enviados desde su panel; una prueba con un mensaje real está bloqueada por esa restricción.
 
 ## Neon y alcance de datos
 
