@@ -9,17 +9,20 @@
 
 ## Secrets
 
-Configura valores únicamente mediante Replit Secrets. La aplicación utiliza `DATABASE_URL`, `GEMINI_API_KEY` y `WHATSAPP_VERIFY_TOKEN`. No copiar valores secretos a archivos, consola, registros ni commits.
+Configura valores únicamente mediante Replit Secrets. La aplicación utiliza `DATABASE_URL`, `GEMINI_API_KEY`, `WHATSAPP_VERIFY_TOKEN` y `WHATSAPP_APP_SECRET`. No copiar valores secretos a archivos, consola, registros ni commits.
 
 ## Webhook de WhatsApp
 
 - Ruta: `/api/whatsapp/webhook`.
 - GET implementa el desafío `hub.mode=subscribe`, compara `hub.verify_token` con `WHATSAPP_VERIFY_TOKEN` y responde con `hub.challenge`.
-- POST valida JSON, confirma la recepción y registra solo el conteo de mensajes; no guarda ni imprime el contenido, teléfonos u otros datos del payload.
+- POST valida `X-Hub-Signature-256` como HMAC-SHA256 del cuerpo original antes de interpretar JSON. Rechaza firmas ausentes o incorrectas; requiere `WHATSAPP_APP_SECRET`.
+- Tras una firma válida, confirma la recepción y registra solo el conteo de mensajes; no guarda ni imprime el contenido, teléfonos, firma ni otros datos del payload.
 - El logger de desarrollo redacta los parámetros del token y el desafío en los registros de solicitudes.
 - Esta iteración no responde mensajes ni procesa conversaciones.
 
-Antes de exponer el webhook fuera del entorno de desarrollo, configurar un callback HTTPS público y validar la firma `X-Hub-Signature-256` con el App Secret de Meta. Esa protección no está incluida en esta iteración.
+Para probar firmas contra el servidor de desarrollo, ejecuta `npm run test:webhook`. Usa `WHATSAPP_APP_SECRET` desde Secrets y prueba firmas válidas, incorrectas y ausentes sin mostrar el valor ni la firma.
+
+La aplicación no queda conectada ni publicada en Meta en esta iteración.
 
 ## Neon y alcance de datos
 

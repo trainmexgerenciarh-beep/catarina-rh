@@ -6,7 +6,8 @@
     "dev": "vite dev --host 0.0.0.0 --port 5000",
     "build": "vite build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:integrations": "node scripts/check-integrations.mjs"
+    "check:integrations": "node scripts/check-integrations.mjs",
+    "test:webhook": "node scripts/test-whatsapp-signature.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

@@ -1,5 +1,23 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { json, type RequestHandler } from "@sveltejs/kit";
+
+function isValidSignature(
+  rawBody: Buffer,
+  signatureHeader: string | null,
+  appSecret: string
+): boolean {
+  if (!signatureHeader || !/^sha256=[a-f0-9]{64}$/i.test(signatureHeader)) {
+    return false;
+  }
+
+  const receivedDigest = Buffer.from(signatureHeader.slice("sha256=".length), "hex");
+  const expectedDigest = createHmac("sha256", appSecret).update(rawBody).digest();
+
+  return (
+    receivedDigest.length === expectedDigest.length &&
+    timingSafeEqual(receivedDigest, expectedDigest)
+  );
+}
 
 function tokensMatch(received: string, expected: string): boolean {
   const receivedBuffer = Buffer.from(received);
@@ -37,10 +55,26 @@ export const GET: RequestHandler = ({ url }) => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) {
+    return json(
+      { received: false, error: "Webhook not configured" },
+      { status: 503 }
+    );
+  }
+
+  const rawBody = Buffer.from(await request.arrayBuffer());
+  if (!isValidSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
+    return json(
+      { received: false, error: "Invalid webhook signature" },
+      { status: 401 }
+    );
+  }
+
   let payload: unknown;
 
   try {
-    payload = await request.json();
+    payload = JSON.parse(rawBody.toString("utf8"));
   } catch {
     return json({ received: false, error: "Invalid JSON" }, { status: 400 });
   }
