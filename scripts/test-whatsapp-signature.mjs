@@ -25,7 +25,7 @@ const body = JSON.stringify({
             messages: [
               {
                 id: "wamid.test",
-                from: "0000000000",
+                from: "000000000000000",
                 type: "text",
                 text: { body: "webhook signature test" }
               }
