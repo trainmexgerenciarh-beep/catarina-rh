@@ -1,10 +1,20 @@
 /**
  * @typedef {"active" | "inactive" | "not_found" | "ambiguous"} CollaboratorStatus
  * @typedef {{ senderPhone: string; text: string }} IncomingTextMessage
- * @typedef {{ collaboratorStatus: CollaboratorStatus; topic: string }} ProcessedMessage
+ * @typedef {{ idServicio: string; categoria: string | null; subcategoria: string | null }} ActiveService
+ * @typedef {{ serviceId: string | null; classification: "clasificado" | "sin clasificar" }} ServiceClassification
+ * @typedef {{
+ *   collaboratorStatus: CollaboratorStatus;
+ *   serviceId: string | null;
+ *   classification: "clasificado" | "sin clasificar";
+ * }} ProcessedMessage
  * @typedef {{
  *   lookupCollaborator: (senderPhone: string) => Promise<CollaboratorStatus>;
- *   classifyTopic: (text: string) => Promise<string>;
+ *   listActiveServices: () => Promise<ActiveService[]>;
+ *   classifyService: (
+ *     text: string,
+ *     services: ActiveService[]
+ *   ) => Promise<ServiceClassification>;
  * }} MessageProcessingDependencies
  */
 
@@ -73,14 +83,20 @@ export function extractIncomingTextMessages(payload) {
  */
 export async function processIncomingMessages(payload, dependencies) {
   const incomingMessages = extractIncomingTextMessages(payload);
+  if (incomingMessages.length === 0) return [];
+
+  const activeServices = await dependencies.listActiveServices();
   const results = [];
 
   for (const message of incomingMessages) {
     const collaboratorStatus = await dependencies.lookupCollaborator(
       message.senderPhone
     );
-    const topic = await dependencies.classifyTopic(message.text);
-    results.push({ collaboratorStatus, topic });
+    const serviceClassification = await dependencies.classifyService(
+      message.text,
+      activeServices
+    );
+    results.push({ collaboratorStatus, ...serviceClassification });
   }
 
   return results;
@@ -98,11 +114,17 @@ export function summarizeProcessingResults(results) {
     inactive: 0,
     notFound: 0,
     ambiguous: 0,
-    classified: 0
+    classified: 0,
+    unclassified: 0
   };
 
   for (const result of results) {
-    summary.classified += 1;
+    if (result.classification === "clasificado") {
+      summary.classified += 1;
+    } else {
+      summary.unclassified += 1;
+    }
+
     switch (result.collaboratorStatus) {
       case "active":
         summary.active += 1;

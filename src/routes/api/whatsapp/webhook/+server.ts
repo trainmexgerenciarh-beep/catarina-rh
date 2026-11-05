@@ -1,7 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { json, type RequestHandler } from "@sveltejs/kit";
-import { classifyTopic } from "../../../../lib/server/gemini-topic-classifier";
-import { lookupCollaboratorStatus } from "../../../../lib/server/neon-collaborators";
+import { classifyService } from "../../../../lib/server/gemini-service-classifier";
+import {
+  listActiveServices,
+  lookupCollaboratorStatus
+} from "../../../../lib/server/neon-collaborators";
 import {
   processIncomingMessages,
   summarizeProcessingResults
@@ -97,9 +100,13 @@ export const POST: RequestHandler = async ({ request }) => {
         processingStage = "neon";
         return lookupCollaboratorStatus(senderPhone);
       },
-      classifyTopic: async (text) => {
+      listActiveServices: async () => {
+        processingStage = "neon";
+        return listActiveServices();
+      },
+      classifyService: async (text, services) => {
         processingStage = "gemini";
-        return classifyTopic(text);
+        return classifyService(text, services);
       }
     });
   } catch {
