@@ -55,8 +55,9 @@ export async function classifyService(
       text
     ].join("\n"),
     config: {
-      maxOutputTokens: 64,
+      maxOutputTokens: 128,
       responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 },
       temperature: 0
     }
   });
