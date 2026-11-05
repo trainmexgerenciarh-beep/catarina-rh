@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import type { ActiveService } from "./neon-collaborators";
 
 export type ServiceClassification = {
@@ -74,6 +74,17 @@ export async function classifyService(
     config: {
       maxOutputTokens: 128,
       responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          id_servicio: {
+            type: Type.STRING,
+            enum: services.map(({ idServicio }) => idServicio),
+            nullable: true
+          }
+        },
+        required: ["id_servicio"]
+      },
       thinkingConfig: { thinkingBudget: 0 },
       temperature: 0
     }

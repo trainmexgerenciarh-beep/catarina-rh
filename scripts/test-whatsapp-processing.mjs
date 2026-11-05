@@ -271,15 +271,41 @@ async function runGeminiCheck(services) {
     );
     assert.ok(expectedService, `Expected active service missing: ${testCase.label}`);
 
-    const result = await processIncomingMessages(makeEvent([
-      { from: syntheticPhone, type: "text", text: { body: testCase.text } }
-    ]), {
-      lookupCollaborator: async () => "active",
-      listActiveServices: async () => services,
-      classifyService
-    });
+    let result;
+    try {
+      result = await processIncomingMessages(makeEvent([
+        { from: syntheticPhone, type: "text", text: { body: testCase.text } }
+      ]), {
+        lookupCollaborator: async () => "active",
+        listActiveServices: async () => services,
+        classifyService
+      });
+    } catch (error) {
+      const status =
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        typeof error.status === "number"
+          ? error.status
+          : "unavailable";
+      console.error(
+        `Gemini classification call failed for ${testCase.label}; HTTP status: ${status}; provider details and response omitted.`
+      );
+      throw new Error("Synthetic classification case failed");
+    }
 
     assert.equal(result.length, 1);
+    const actualService = services.find(
+      (service) => service.idServicio === result[0].serviceId
+    );
+    if (
+      result[0].classification !== "clasificado" ||
+      result[0].serviceId !== expectedService.idServicio
+    ) {
+      console.error(
+        `Gemini classification mismatch for ${testCase.label}: expected ${testCase.category} / ${testCase.subcategory}; returned ${actualService?.categoria ?? "sin clasificar"} / ${actualService?.subcategoria ?? "sin clasificar"}.`
+      );
+    }
     assert.equal(result[0].classification, "clasificado", testCase.label);
     assert.equal(result[0].serviceId, expectedService.idServicio, testCase.label);
     assert.ok(
