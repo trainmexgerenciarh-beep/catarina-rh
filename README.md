@@ -20,6 +20,13 @@ npm run check:integrations
 
 El webhook de WhatsApp está disponible en `/api/whatsapp/webhook`. La verificación GET requiere `WHATSAPP_VERIFY_TOKEN`; el POST requiere la firma `X-Hub-Signature-256` comprobada con `WHATSAPP_APP_SECRET` y no guarda mensajes.
 
+## Clasificación de mensajes — 5 de noviembre de 2026
+
+- El procesamiento consulta solo lectura los campos `id_servicio`, `categoria` y `subcategoria` de los servicios activos en Neon.
+- Gemini selecciona un `id_servicio` del catálogo vigente. El servidor valida que el identificador exista en esa lista; un ID desconocido o una consulta sin correspondencia produce «sin clasificar».
+- El clasificador diferencia el pago de premios de puntualidad y asistencia de las consultas sobre sus reglas para obtenerlos.
+- `npm run test:processing` usa el catálogo real de Neon para probar mensajes ficticios de pago semanal, despensa, gasolina, vacaciones, permisos, horas extra, quejas, ideas de mejora, ambas consultas de premios y un caso sin clasificación. No inserta registros ni modifica el esquema.
+
 ## Estado de configuración de WhatsApp — 5 de noviembre de 2026
 
 - Se corrigió `WHATSAPP_APP_SECRET` en Replit Secrets con el App Secret de Meta; no se documenta su valor.

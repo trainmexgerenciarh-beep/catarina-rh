@@ -9,7 +9,10 @@ import {
   listActiveServices,
   lookupCollaboratorStatus
 } from "../src/lib/server/neon-collaborators.ts";
-import { classifyService } from "../src/lib/server/gemini-service-classifier.ts";
+import {
+  classifyService,
+  selectActiveServiceById
+} from "../src/lib/server/gemini-service-classifier.ts";
 
 const syntheticPhone = "000000000000000";
 const syntheticServices = [
@@ -142,9 +145,25 @@ async function runUnitChecks() {
     classification: "sin clasificar"
   });
 
+  assert.deepEqual(
+    selectActiveServiceById(syntheticServices[0].idServicio, syntheticServices),
+    {
+      serviceId: syntheticServices[0].idServicio,
+      classification: "clasificado"
+    }
+  );
+  assert.deepEqual(selectActiveServiceById("invented-id", syntheticServices), {
+    serviceId: null,
+    classification: "sin clasificar"
+  });
+  assert.deepEqual(selectActiveServiceById(1, syntheticServices), {
+    serviceId: null,
+    classification: "sin clasificar"
+  });
+
   console.log("Procesamiento y extracción de eventos ficticios: PASS.");
   console.log("Estados activo, inactivo, no encontrado y ambiguo: PASS.");
-  console.log("Sin coincidencia y sin catálogo: resultado «sin clasificar»: PASS.");
+  console.log("ID ajeno al catálogo y sin catálogo: resultado «sin clasificar»: PASS.");
 }
 
 async function runNeonReadOnlyCheck() {
@@ -162,48 +181,117 @@ async function runNeonReadOnlyCheck() {
           service.subcategoria === null)
     )
   );
+  assert.equal(services.length, 15);
+  const countsByCategory = services.reduce((counts, service) => {
+    const category = service.categoria ?? "";
+    counts[category] = (counts[category] ?? 0) + 1;
+    return counts;
+  }, {});
+  assert.deepEqual(countsByCategory, {
+    "Nómina y prestaciones": 8,
+    "Políticas y procedimientos": 5,
+    "Tu Voz en Trainmex": 2
+  });
+  assert.equal(new Set(services.map((service) => service.idServicio)).size, 15);
   console.log(
-    `Consulta de solo lectura a servicios activos en Neon: PASS (${services.length} opciones; nombres e IDs omitidos).`
+    "Catálogo activo real de Neon: PASS (15 servicios en la distribución esperada; nombres e IDs omitidos)."
   );
+  return services;
 }
 
-async function runGeminiCheck() {
+async function runGeminiCheck(services) {
   const cases = [
     {
-      text: "Consulta ficticia: no aparece el pago de horas extra en mi recibo de nómina.",
-      expectedId: syntheticServices[0].idServicio,
-      label: "nómina"
+      text: "Consulta ficticia: ¿qué día depositan el pago semanal?",
+      category: "Nómina y prestaciones",
+      subcategory: "Pago semanal",
+      label: "pago semanal"
     },
     {
-      text: "Consulta ficticia: ¿qué beneficios y seguro médico incluyen mis prestaciones?",
-      expectedId: syntheticServices[1].idServicio,
-      label: "prestaciones"
+      text: "Consulta ficticia: no recibí el apoyo de despensa de esta semana.",
+      category: "Nómina y prestaciones",
+      subcategory: "Despensa",
+      label: "despensa"
     },
     {
-      text: "Consulta ficticia: ¿cuál es la política de personal para solicitar vacaciones?",
-      expectedId: syntheticServices[2].idServicio,
-      label: "políticas de personal"
+      text: "Consulta ficticia: no se reflejó el apoyo de gasolina en mi pago.",
+      category: "Nómina y prestaciones",
+      subcategory: "Gasolina",
+      label: "gasolina"
+    },
+    {
+      text: "Consulta ficticia: ¿cuántos días de vacaciones puedo solicitar?",
+      category: "Políticas y procedimientos",
+      subcategory: "Vacaciones",
+      label: "vacaciones"
+    },
+    {
+      text: "Consulta ficticia: ¿cómo solicito un permiso personal?",
+      category: "Políticas y procedimientos",
+      subcategory: "Permisos",
+      label: "permisos"
+    },
+    {
+      text: "Consulta ficticia: me faltan horas extra en el recibo de esta semana.",
+      category: "Nómina y prestaciones",
+      subcategory: "Horas extra",
+      label: "horas extra"
+    },
+    {
+      text: "Consulta ficticia: no aparece en mi depósito el premio de puntualidad y asistencia.",
+      category: "Nómina y prestaciones",
+      subcategory: "Premios de puntualidad y asistencia",
+      label: "pago de premios"
+    },
+    {
+      text: "Consulta ficticia: ¿qué requisitos debo cumplir para obtener el premio de puntualidad y asistencia?",
+      category: "Políticas y procedimientos",
+      subcategory: "Premios de puntualidad y asistencia",
+      label: "reglas de premios"
+    },
+    {
+      text: "Consulta ficticia: quiero presentar una queja sobre una situación de trabajo.",
+      category: "Tu Voz en Trainmex",
+      subcategory: "Quejas y denuncias",
+      label: "quejas"
+    },
+    {
+      text: "Consulta ficticia: tengo una idea para mejorar un proceso de la empresa.",
+      category: "Tu Voz en Trainmex",
+      subcategory: "Ideas y mejoras",
+      label: "ideas de mejora"
     }
   ];
 
   for (const testCase of cases) {
+    const expectedService = services.find(
+      (service) =>
+        service.categoria === testCase.category &&
+        service.subcategoria === testCase.subcategory
+    );
+    assert.ok(expectedService, `Expected active service missing: ${testCase.label}`);
+
     const result = await processIncomingMessages(makeEvent([
       { from: syntheticPhone, type: "text", text: { body: testCase.text } }
     ]), {
       lookupCollaborator: async () => "active",
-      listActiveServices: async () => syntheticServices,
+      listActiveServices: async () => services,
       classifyService
     });
 
     assert.equal(result.length, 1);
     assert.equal(result[0].classification, "clasificado", testCase.label);
-    assert.equal(result[0].serviceId, testCase.expectedId, testCase.label);
-    console.log(`Gemini mapea mensaje ficticio de ${testCase.label}: PASS.`);
+    assert.equal(result[0].serviceId, expectedService.idServicio, testCase.label);
+    assert.ok(
+      services.some((service) => service.idServicio === result[0].serviceId),
+      `Gemini returned an ID outside the active catalog: ${testCase.label}`
+    );
+    console.log(`Gemini clasifica contra el catálogo real: ${testCase.label}: PASS.`);
   }
 
   const unmatched = await classifyService(
     "Consulta ficticia ajena a Recursos Humanos sobre el pronóstico del clima.",
-    syntheticServices
+    services
   );
   assert.deepEqual(unmatched, {
     serviceId: null,
@@ -214,8 +302,8 @@ async function runGeminiCheck() {
 
 try {
   await runUnitChecks();
-  await runNeonReadOnlyCheck();
-  await runGeminiCheck();
+  const activeServices = await runNeonReadOnlyCheck();
+  await runGeminiCheck(activeServices);
   console.log("Prueba interna de procesamiento completada; no se guardaron mensajes ni se enviaron respuestas.");
 } catch {
   console.error(
