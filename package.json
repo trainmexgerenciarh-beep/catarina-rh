@@ -11,7 +11,8 @@
     "test:processing": "node scripts/test-whatsapp-processing.mjs",
     "test:conversation": "node scripts/test-whatsapp-conversation.mjs",
     "test:classifier": "node scripts/test-gemini-classifier.mjs",
-    "test:awards": "node scripts/test-whatsapp-processing.mjs --awards-only"
+    "test:awards": "node scripts/test-whatsapp-processing.mjs --awards-only",
+    "test:payroll": "node scripts/test-payroll.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

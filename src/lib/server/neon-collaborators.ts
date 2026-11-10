@@ -1,5 +1,6 @@
 import pg from "pg";
 import type { CollaboratorStatus } from "./whatsapp-message-processing.js";
+import type { Identity } from "./payroll-tickets.ts";
 
 const COLLABORATOR_LOOKUP_SQL = `
   SELECT activo
@@ -72,6 +73,22 @@ export async function listActiveServices(): Promise<ActiveService[]> {
     categoria: row.categoria,
     subcategoria: row.subcategoria
   }));
+}
+
+/** Only the active, unambiguous directory match may become a ticket owner. */
+export async function lookupCollaboratorIdentity(senderPhone: string): Promise<Identity> {
+  const phone = senderPhone.replace(/\D/g, "");
+  if (!phone) return { status: "not_found", id: null };
+  const result = await getNeonPool().query<{ id_colaborador: string; activo: boolean | null }>(
+    `SELECT id_colaborador, activo FROM public.colaboradores
+     WHERE regexp_replace(COALESCE(whatsapp, ''), '[^0-9]', '', 'g') = $1 LIMIT 2`,
+    [phone]
+  );
+  if (result.rows.length > 1) return { status: "ambiguous", id: null };
+  if (!result.rows[0]) return { status: "not_found", id: null };
+  return result.rows[0].activo === true
+    ? { status: "active", id: result.rows[0].id_colaborador }
+    : { status: "inactive", id: null };
 }
 
 export async function closeNeonPool(): Promise<void> {

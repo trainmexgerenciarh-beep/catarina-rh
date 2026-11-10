@@ -1,6 +1,6 @@
 /**
  * @typedef {"active" | "inactive" | "not_found" | "ambiguous"} CollaboratorStatus
- * @typedef {{ senderPhone: string; text: string }} IncomingTextMessage
+ * @typedef {{ senderPhone: string; text: string; messageId?: string }} IncomingTextMessage
  * @typedef {{ idServicio: string; categoria: string | null; subcategoria: string | null }} ActiveService
  * @typedef {{ serviceId: string | null; classification: "clasificado" | "sin clasificar" }} ServiceClassification
  * @typedef {{
@@ -65,7 +65,11 @@ export function extractIncomingTextMessages(payload) {
         const senderPhone = message.from.replace(/\D/g, "");
         if (!senderPhone || message.text.body.trim().length === 0) continue;
 
-        messages.push({ senderPhone, text: message.text.body });
+        messages.push({
+          senderPhone,
+          text: message.text.body,
+          ...(typeof message.id === "string" ? { messageId: message.id } : {})
+        });
       }
     }
   }

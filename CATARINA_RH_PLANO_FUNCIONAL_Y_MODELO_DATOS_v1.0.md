@@ -1,6 +1,21 @@
 # Catarina RH — Plano Funcional y Modelo de Datos
 
-**Versión interna vigente:** 1.1
+**Versión interna vigente:** base 1.1, complementada por adenda funcional 1.2
+
+## Adenda funcional 1.2 — Iteración 02 (10 de noviembre de 2026)
+
+Fuente: segunda pestaña del documento oficial. Esta adenda sustituye solo los pendientes históricos de duración, anticipación, operaciones de agenda y caducidad. El modelo y SQL históricos siguientes se conservan íntegros.
+
+1. Agenda única, horario inicial lunes a viernes 14:00–17:30; 20 minutos por cita, consecutivos sin colchón. El patrón inicial termina en 17:00–17:20; 17:20–17:40 queda fuera. No autoriza a modificar horarios de Neon.
+2. Reserva desde el mismo día con al menos 120 minutos exactos hasta el inicio, calculados de nuevo antes de guardar. Excluir ocupados, bloqueados, pasados, no laborables y fuera de horario. Zona de presentación `America/Mexico_City`.
+3. Cancelar/reprogramar con intención confirmada, revalidación y asociación al ticket, sin duplicar reservas ni dar por resuelto el asunto.
+4. Contexto: si transcurren **>=120 minutos** desde el último mensaje aceptado, la siguiente entrada inicia nueva atención. No cerrar tickets ni borrar reservas por caducidad; no inferir negativa.
+5. **02-A:** ocho subservicios activos de nómina, viernes de pago precisado sin supuestos, explicación proporcional, resumen confirmado y luego ticket/folio. Negativa expresa a cita: cerrado sin cita y no resuelto, consultable por RH cuando exista panel. **02-B:** agenda presencial, aún no implementada.
+6. Comprobar primero las 11 tablas y sus restricciones; controlar idempotencia/concurrencia y documentar límites de memoria. No cambiar esquema sin autorización ni registrar datos ficticios en Neon sin permiso explícito.
+7. Pruebas de borde de agenda corresponden a 02-B; las de ticket sin cita, caducidad exacta y reintentos corresponden a 02-A. No hay mensajes salientes reales, encuesta ni permisos nuevos en esta fase.
+
+**Evolución puntual autorizada del esquema, sin alterar el SQL histórico:** se añadió únicamente `tickets.id_mensaje_confirmacion TEXT UNIQUE`, opcional, para correlacionar confirmaciones. No se insertaron registros de prueba. Véanse [evidencia y límites de 02-A](docs/ITERACION_02_A.md) y [registro técnico de gestión](docs/CONTROL_PROYECTO.md). Esto no declara implementado el Paquete Funcional 01 ni la agenda.
+
 **Fecha de actualización:** 10 de noviembre de 2026
 **Fuente rectora:** [Plano Funcional y Modelo de Datos de Catarina RH en Google Drive](https://docs.google.com/document/d/1FZwL9pcLkrU6TL5EW77j7UygGJ3tqYbNq5ZqFCy3duU/edit), pestaña «CATARINA RH — PLANO FUNCIONAL Y MODELO DE DATOS».
 **Estado:** Paquete Funcional 01 definido; implementación de sus flujos pendiente. Complementa el Documento Maestro de Control v1.2, que tiene precedencia. El Plano v1.0 y el SQL ejecutado se conservan más abajo como referencia histórica del esquema real; no volver a ejecutar `CREATE TABLE` en Neon.

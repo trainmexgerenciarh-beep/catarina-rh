@@ -1,5 +1,14 @@
 # Catarina RH — notas de desarrollo
 
+## Estado actual — Iteración 02-A
+
+- Recepción de nómina y tickets con repositorio de simulación; no habilitar escrituras Neon desde el webhook por iniciativa propia. El adaptador SQL existe, pero su validación integrada requiere autorización de datos sintéticos.
+- Contexto con caducidad exacta de 120 minutos sin actividad aceptada, aplicada por el motor compuesto. Reinicios pierden memoria; no eliminan ni modifican tickets persistidos.
+- Único cambio de esquema autorizado y aplicado: `public.tickets.id_mensaje_confirmacion TEXT UNIQUE`, opcional. No autoriza otras columnas, tablas, índices adicionales ni datos de prueba. No ejecutar de nuevo automáticamente.
+- `npm run test:payroll`: simulación de confirmación, folio estable, reintentos/reinicio de dos procesos, negativa expresa y caducidad. No hace llamadas externas.
+- Evidencia y límites: [Iteración 02-A](docs/ITERACION_02_A.md); [registro técnico de gestión](docs/CONTROL_PROYECTO.md).
+- Las notas de iteraciones anteriores se conservan abajo como historial. No representan el estado funcional completo actual.
+
 ## Ejecutar y validar
 
 - El workflow `Start application` ejecuta `npm run dev` en el puerto 5000.
@@ -35,4 +44,4 @@ Para probar firmas contra el servidor de desarrollo, ejecuta `npm run test:webho
 
 `npm run check:integrations` solo lee `information_schema.tables` para comprobar las 11 tablas indicadas en los documentos funcionales. No ejecuta DDL ni modifica filas. No agregar migraciones, crear tablas o cambiar el esquema sin autorización explícita.
 
-No están implementados todavía los flujos completos de conversación, agenda, tickets, respuestas documentales ni funciones de atención.
+No están implementados los módulos posteriores ni la operación productiva. Los tickets 02-A se prueban en simulación; su adaptador Neon no está habilitado en el webhook.

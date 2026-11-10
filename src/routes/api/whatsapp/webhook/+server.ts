@@ -5,20 +5,22 @@ import {
   classifyService
 } from "../../../../lib/server/gemini-service-classifier";
 import {
-  createConversationManager,
   processIncomingConversationEvent,
   summarizeConversationResults
 } from "../../../../lib/server/whatsapp-conversation.js";
+import { createPayrollReception } from "../../../../lib/server/payroll-reception.ts";
+import { createMemoryTicketRepository } from "../../../../lib/server/payroll-tickets.ts";
 import {
   listActiveServices,
-  lookupCollaboratorStatus
+  lookupCollaboratorIdentity
 } from "../../../../lib/server/neon-collaborators";
 
-const conversationManager = createConversationManager({
-  lookupCollaborator: lookupCollaboratorStatus,
+// Simulation remains explicit. The Neon write adapter is not activated here.
+const conversationManager = createPayrollReception({
+  lookupIdentity: lookupCollaboratorIdentity,
   listActiveServices,
   classifyService
-});
+}, createMemoryTicketRepository());
 
 function isValidSignature(
   rawBody: Buffer,

@@ -21,6 +21,7 @@ import { extractIncomingTextMessages } from "./whatsapp-message-processing.js";
  * @typedef {{
  *   intent: ConversationIntent | null;
  *   classification: "clasificado" | "sin clasificar" | null;
+ *   serviceId?: string;
  * }} IntentClassification
  * @typedef {{
  *   screen: ConversationScreen;
@@ -34,6 +35,7 @@ import { extractIncomingTextMessages } from "./whatsapp-message-processing.js";
  *   action: string;
  *   reply: string;
  *   classification: "clasificado" | "sin clasificar" | null;
+ *   serviceId?: string;
  * }} ConversationResult
  * @typedef {{
  *   lookupCollaborator: (phone: string) => Promise<CollaboratorStatus>;
@@ -159,10 +161,11 @@ function isGreeting(input) {
  * @param {string} action
  * @param {string} reply
  * @param {"clasificado" | "sin clasificar" | null} [classification=null]
+ * @param {string} [serviceId]
  * @returns {ConversationResult}
  */
-function makeResult(collaboratorStatus, action, reply, classification = null) {
-  return { collaboratorStatus, action, reply, classification };
+function makeResult(collaboratorStatus, action, reply, classification = null, serviceId) {
+  return { collaboratorStatus, action, reply, classification, ...(serviceId ? { serviceId } : {}) };
 }
 
 /**
@@ -321,6 +324,7 @@ export function createConversationManager(dependencies, sessionStore = new Map()
         category,
         voiceTopic: voiceTopicForService(service)
       },
+      serviceId: service.idServicio,
       classification: "clasificado"
     };
   }
@@ -458,7 +462,8 @@ export function createConversationManager(dependencies, sessionStore = new Map()
           collaboratorStatus,
           "correction_applied",
           reply,
-          classified.classification
+          classified.classification,
+          classified.serviceId
         );
       }
 
@@ -514,7 +519,8 @@ export function createConversationManager(dependencies, sessionStore = new Map()
           collaboratorStatus,
           "direct_entry",
           reply,
-          classified.classification
+          classified.classification,
+          classified.serviceId
         );
       }
 
@@ -551,7 +557,8 @@ export function createConversationManager(dependencies, sessionStore = new Map()
           collaboratorStatus,
           "voice_direct_entry",
           reply,
-          classified.classification
+          classified.classification,
+          classified.serviceId
         );
       }
       if (classified.intent) {
@@ -565,7 +572,8 @@ export function createConversationManager(dependencies, sessionStore = new Map()
           collaboratorStatus,
           "direct_entry",
           reply,
-          classified.classification
+          classified.classification,
+          classified.serviceId
         );
       }
 
@@ -604,7 +612,8 @@ export function createConversationManager(dependencies, sessionStore = new Map()
       collaboratorStatus,
       "need_received",
       "Gracias, te escucho. Puedes agregar otro dato o usar «corregir», «regresar», «menú principal» o «cancelar». Esta simulación no guarda mensajes ni crea tickets, citas o expedientes.",
-      classified.classification
+      classified.classification,
+      classified.serviceId
     );
   }
 
@@ -613,7 +622,7 @@ export function createConversationManager(dependencies, sessionStore = new Map()
 
 /**
  * @param {unknown} payload
- * @param {{handleMessage: (senderPhone: string, messageText: string) => Promise<ConversationResult>}} manager
+ * @param {{handleMessage: (senderPhone: string, messageText: string, messageId?: string) => Promise<ConversationResult>}} manager
  * @returns {Promise<ConversationResult[]>}
  */
 export async function processIncomingConversationEvent(payload, manager) {
@@ -621,7 +630,7 @@ export async function processIncomingConversationEvent(payload, manager) {
   /** @type {ConversationResult[]} */
   const results = [];
   for (const message of messages) {
-    results.push(await manager.handleMessage(message.senderPhone, message.text));
+    results.push(await manager.handleMessage(message.senderPhone, message.text, message.messageId));
   }
   return results;
 }

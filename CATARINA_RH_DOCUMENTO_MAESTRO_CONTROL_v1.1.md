@@ -1,6 +1,20 @@
 # Catarina RH — Documento Maestro de Control
 
 **Versión interna vigente:** 1.2
+
+## Decisiones operativas aprobadas — Iteración 02 (10 de noviembre de 2026)
+
+Fuente: actualización rectora de la primera pestaña del documento oficial. Este apartado prevalece sobre los pendientes históricos relativos a agenda y caducidad, sin alterar el resto del Maestro v1.2:
+
+- **AG-01:** una agenda institucional; citas de exactamente 20 minutos consecutivos, sin separación adicional, íntegramente dentro del horario institucional y sin solapamientos.
+- **AG-02:** reserva desde el mismo día solo cuando falten al menos 120 minutos completos al inicio, comprobados también al confirmar. Exactamente 120 minutos es elegible. Zona operativa: `America/Mexico_City`.
+- **AG-03:** permitir cancelar y reprogramar con revalidación de disponibilidad y margen; cancelar una cita no resuelve el ticket.
+- **SES-01:** el contexto caduca al cumplirse 120 minutos sin actividad del colaborador. La siguiente entrada inicia nueva atención. Caducidad, silencio y reinicio no equivalen a rechazo de cita, resolución ni autorización para borrar tickets.
+- **02-A:** recepción de nómina, viernes de pago, explicación mínima, resumen confirmado y ticket con folio; negativa expresa a agendar → cerrado sin cita, no resuelto. **02-B:** agenda presencial y operaciones de reserva/cancelación/reprogramación, todavía fuera de esta implementación.
+- Toda alteración de esquema necesita autorización previa. Se conserva el SQL histórico; la única evolución autorizada para 02-A se registra en [la documentación técnica](docs/ITERACION_02_A.md). El contexto entre procesos y recuperación antes de producción siguen sujetos a revisión.
+
+Estas son decisiones funcionales aprobadas, no una declaración de agenda implementada. La adenda funcional 1.2 complementa el Plano base v1.1. El estado técnico de 02-A se registra por separado en [Gestión técnica](docs/CONTROL_PROYECTO.md).
+
 **Fecha rectora:** 10 de noviembre de 2026
 **Fuente rectora:** [Documento Maestro de Control de Catarina RH en Google Drive](https://docs.google.com/document/d/1FZwL9pcLkrU6TL5EW77j7UygGJ3tqYbNq5ZqFCy3duU/edit), pestaña «CATARINA RH — DOCUMENTO MAESTRO DE CONTROL».
 **Estado:** diseño funcional del Paquete Funcional 01 consolidado; implementación de sus flujos pendiente. La aplicación no está publicada. La clasificación inicial con Gemini y el catálogo de servicios se reportaron probados hasta el commit `c4ee893`; esto no implica que el Paquete Funcional 01 esté implementado.
