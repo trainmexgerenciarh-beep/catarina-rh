@@ -2,11 +2,12 @@
 
 ## Estado actual — Iteración 02-A
 
-- Recepción de nómina y tickets con repositorio de simulación; no habilitar escrituras Neon desde el webhook por iniciativa propia. El adaptador SQL existe, pero su validación integrada requiere autorización de datos sintéticos.
+- Recepción de nómina y tickets con repositorio de simulación; no habilitar escrituras Neon desde el webhook por iniciativa propia. El adaptador pasó una prueba autorizada en Neon dentro de ROLLBACK; COMMIT durable, reinicio y concurrencia entre conexiones siguen sin verificar.
 - Contexto con caducidad exacta de 120 minutos sin actividad aceptada, aplicada por el motor compuesto. Reinicios pierden memoria; no eliminan ni modifican tickets persistidos.
 - Único cambio de esquema autorizado y aplicado: `public.tickets.id_mensaje_confirmacion TEXT UNIQUE`, opcional. No autoriza otras columnas, tablas, índices adicionales ni datos de prueba. No ejecutar de nuevo automáticamente.
 - `npm run test:payroll`: simulación de confirmación, folio estable, reintentos/reinicio de dos procesos, negativa expresa y caducidad. No hace llamadas externas.
 - Evidencia y límites: [Iteración 02-A](docs/ITERACION_02_A.md); [registro técnico de gestión](docs/CONTROL_PROYECTO.md).
+- Prueba integrada y limpieza: [ensayo controlado](docs/PRUEBA_INTEGRACION_02_A.md). `test:payroll:neon` inspecciona sin escribir por defecto; `--rollback-authorized` ejecuta fixtures aislados solo con autorización expresa. No usar personas/servicios operativos como fixtures ni restablecer secuencias. El ensayo no dejó filas persistidas.
 - Las notas de iteraciones anteriores se conservan abajo como historial. No representan el estado funcional completo actual.
 
 ## Ejecutar y validar

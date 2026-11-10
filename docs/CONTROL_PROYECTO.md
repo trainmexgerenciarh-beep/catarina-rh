@@ -8,7 +8,10 @@ ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
 ## Estado de la Iteración 02-A
 
-**IMPLEMENTADO EN SIMULACIÓN / SIN VALIDACIÓN INTEGRADA DE ESCRITURA.**
+**IMPLEMENTADO EN SIMULACIÓN / ADAPTADOR VALIDADO EN NEON CON ROLLBACK.**
+Actualización: prueba controlada autorizada del 10 de noviembre de 2026,
+documentada en [Integración 02-A](PRUEBA_INTEGRACION_02_A.md). El webhook continúa
+simulado; no se comprobó COMMIT durable ni concurrencia real entre conexiones.
 No declarar terminado el Paquete Funcional 01 ni autorizado el inicio de 02-B.
 
 | Registro | Estado y evidencia | Próximo paso / criterio |
@@ -19,10 +22,10 @@ No declarar terminado el Paquete Funcional 01 ni autorizado el inicio de 02-B.
 | Cierre sin cita | PASS simulado: solo negativa expresa, fecha de cierre y no resuelto. Menú, cancelar, silencio y expiración no cierran. | Mostrar posteriormente en RH; panel no implementado. |
 | Idempotencia confirmada | PASS en simulación: reintentos simultáneos, respuesta perdida, reinicio del motor y dos procesos Node con base ficticia persistida. | No equiparar con concurrencia/escritura real de Neon. |
 | SES-01 | PASS: 119m59s conserva, 120m caduca; duplicados no renuevan actividad ni recuperan borrador expirado. | Contexto no compartido ni recuperable tras reinicio; pendiente antes de producción. |
-| Adaptador PostgreSQL | Implementado y probado con cliente SQL simulado: parámetros, UNIQUE/conflicto, transacción, identidad/servicio activo, cierre condicional y errores seguros. | **PENDIENTE** prueba integrada de escritura con datos sintéticos expresamente autorizados. No habilitado en webhook. |
+| Adaptador PostgreSQL | **PASS integrado con ROLLBACK**: INSERT, dos reintentos secuenciales, folio estable, recuperación con nuevo adaptador y cierre sin cita/no resuelto; tres fixtures retirados, 11 tablas conservadas. | COMMIT durable, reinicio y concurrencia entre conexiones no ejecutados. No habilitado en webhook. |
 | Agenda 02-B | NO INICIADA. Solo se prepara oferta de pasar a esa siguiente fase; no hay reserva. | Requiere autorización independiente; no ejecutar disponibilidad ni operaciones de agenda. |
 
-## Resultados ejecutados
+## Resultados ejecutados en la entrega inicial (histórico)
 
 | Comando / comprobación | Resultado real |
 |---|---|
@@ -61,11 +64,29 @@ Evidencia detallada: [Iteración 02-A](ITERACION_02_A.md).
 La trazabilidad exacta del commit se reporta en la entrega y en Git, sin incluir
 una referencia circular al propio hash dentro de este archivo.
 
-## Pendientes concretos
+## Prueba controlada posterior autorizada
 
-- Autorización explícita y condiciones para una prueba integrada aislada de
-  escritura con datos sintéticos. Hasta entonces, no habilitar el adaptador de
-  escritura Neon ni afirmar que se validó persistencia/concurrencia real.
+`npm run test:payroll:neon -- --rollback-authorized`: **PASS**. Un colaborador
+sintético sin teléfono, un servicio sintético y un ticket, exclusivamente
+dentro de una transacción exterior con ROLLBACK. Conteos iniciales/finales:
+colaboradores 0/0, servicios 15/15, tickets 0/0, citas 0/0; las otras siete
+tablas 0/0. Las huellas internas de contenido y esquema permanecieron iguales.
+No se usaron registros reales ni se imprimieron claves, folios o contenido.
+Las secuencias IDENTITY no se revierten necesariamente; no se restablecieron.
+
+Regresiones repetidas: **PASS** test:payroll (15 grupos), test:conversation,
+test:processing completo (incluidos ambos casos del premio), test:webhook,
+check (0 errores/advertencias) y build. No se editó Google Drive.
+La recuperación ensayada usa un adaptador nuevo dentro de la misma transacción,
+no una desconexión de red ni reinicio. Evidencia, aislamiento y limpieza:
+[prueba controlada](PRUEBA_INTEGRACION_02_A.md).
+
+## Pendientes concretos actuales
+
+- Aceptar la prueba controlada ya autorizada/ejecutada y decidir si procede
+  un ensayo separado de COMMIT, reinicio y concurrencia entre conexiones con
+  fixtures temporalmente persistidos. No afirmar esas garantías ni habilitar
+  escrituras desde el webhook por iniciativa propia.
 - Aceptación funcional/técnica por ChatGPT/Trainmex e incorporación de esta
   evidencia al control rector si corresponde.
 - Contexto y reentregas de pasos no confirmados entre procesos/reinicios:

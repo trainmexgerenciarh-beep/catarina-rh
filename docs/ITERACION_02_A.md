@@ -1,7 +1,9 @@
 # Iteración técnica 02-A — recepción de nómina y tickets
 
 Fecha: 10 de noviembre de 2026. Estado: implementación de simulación, pendiente de
-aceptación de ChatGPT/Trainmex y validación de escritura integrada. No implica
+aceptación de ChatGPT/Trainmex. El adaptador ya tiene
+[prueba integrada con ROLLBACK](PRUEBA_INTEGRACION_02_A.md); no se ha probado
+COMMIT durable ni concurrencia entre conexiones. No implica
 terminar el Paquete Funcional 01 ni iniciar 02-B.
 
 ## Fuente y alcance
@@ -107,7 +109,9 @@ Los errores SQL se convierten en códigos seguros sin parámetros ni causas crud
 El cierre es condicional e idempotente: solo afecta al propietario y ticket
 pendiente, no resuelto y sin cita; no altera un cierre previo ni su fecha. No
 implementa cancelación de una reserva. Ningún UPDATE/INSERT de este adaptador
-fue ejecutado en Neon durante esta iteración.
+fue ejecutado en Neon durante la entrega inicial. Posteriormente se autorizaron
+y ejecutaron INSERT/UPDATE sintéticos aislados con ROLLBACK, sin cambiar el
+adaptador ni habilitarlo en el webhook; véase la prueba integrada enlazada arriba.
 
 Se serializan entradas del mismo teléfono dentro de un proceso. Se conservan
 solo IDs técnicos de eventos procesados durante la sesión para no avanzar dos
@@ -135,10 +139,12 @@ No se revive un borrador caducado al reproducir una confirmación antigua.
 - Con un repositorio persistente se recupera la identidad del ticket confirmado,
   no el diálogo previo. Una confirmación antigua no habilita por sí sola el
   cierre de un ticket fuera de una sesión vigente.
-- La concurrencia real de PostgreSQL, persistencia después de reiniciar el
-  servidor e integración completa de escrituras siguen **sin verificar en Neon**.
-  Requieren autorización inequívoca de datos sintéticos y un entorno/alcance
-  acordado. La autorización de la columna no autoriza esas inserciones.
+- La prueba integrada posterior verificó SQL real, dos reintentos secuenciales,
+  folio y cierre con ROLLBACK. La concurrencia entre conexiones, COMMIT y
+  persistencia después de reiniciar siguen **sin verificar en Neon**. No se
+  equipara una transacción aislada con operación productiva. La autorización
+  original de la columna no autorizaba datos; la prueba posterior sí contó
+  con permiso expreso para fixtures aislados.
 
 ## Verificación
 
