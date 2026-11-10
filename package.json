@@ -13,7 +13,8 @@
     "test:classifier": "node scripts/test-gemini-classifier.mjs",
     "test:awards": "node scripts/test-whatsapp-processing.mjs --awards-only",
     "test:payroll": "node scripts/test-payroll.mjs",
-    "test:payroll:neon": "node scripts/test-payroll-neon.mjs"
+    "test:payroll:neon": "node scripts/test-payroll-neon.mjs",
+    "test:agenda": "node scripts/test-agenda.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

@@ -9,18 +9,38 @@ Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
 
 El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución puntual de esquema autorizada para 02-A está documentada por separado.
 
-## Iteración 02-A — estado actual de simulación
+## Iteración 02-B — agenda institucional en simulación
+
+- [Reglas, compatibilidad de esquema, pruebas y límites de 02-B](docs/ITERACION_02_B.md).
+- Motor componible `createAgendaReception` con oferta, selección, confirmación,
+  consulta, cancelación y reprogramación de citas **solo ficticias**. Reutiliza
+  02-A sin modificarla; no está conectado al webhook.
+- Una agenda compartida para una persona de RH; en esta fase solo presencial
+  para Nómina. Lunes-viernes 14:00–17:30, bloques consecutivos de 20 minutos
+  completos, sin buffer, zona `America/Mexico_City`.
+- Margen >=120 minutos al ofrecer/confirmar; revalidación de horario, bloqueos
+  y ocupación. Reprogramar es todo-o-nada en una instancia de memoria.
+- `npm run test:agenda`: 24 grupos ficticios PASS. Regresiones, check y build
+  también PASS; detalles y fallos de desarrollo corregidos en la documentación.
+- Contexto caduca a las dos horas sin borrar reservas; reiniciar el proceso
+  pierde la agenda ficticia. No existe garantía entre procesos/instancias.
+- El pendiente de 02-A permanece separado: no se han probado COMMIT durable ni
+  concurrencia Neon. La prueba anterior con ROLLBACK no los sustituye.
+- En 02-B Neon solo se inspeccionó: **sin escrituras ni DDL**. No se activaron
+  tickets/reservas reales por WhatsApp, transporte saliente ni despliegue.
+
+## Iteración 02-A — antecedente y límites conservados
 
 - [Especificación técnica, esquema autorizado y pruebas](docs/ITERACION_02_A.md).
 - [Registro técnico para Gestión del Proyecto](docs/CONTROL_PROYECTO.md).
 - Nómina recibe el concepto entre ocho servicios activos, identifica el viernes de pago, recopila explicación breve, presenta resumen y exige confirmación explícita. Los IDs se validan de nuevo antes de registrar.
 - Solo después de confirmar crea un ticket **simulado** con folio `SIM-NOM-…`. El adaptador PostgreSQL preparado utiliza `id_ticket` como folio `NOM-…` y la columna opcional `id_mensaje_confirmacion TEXT UNIQUE`, única modificación de Neon expresamente autorizada y aplicada.
 - Una negativa expresa a agendar cierra sin cita y sin resolución. Afirmar interés no reserva; silencio, cancelación del menú y caducidad no cierran tickets.
-- La recepción del webhook usa el repositorio **en memoria de simulación**, no el adaptador de escritura Neon. No envía respuestas por WhatsApp. Falta autorización para datos sintéticos y validación de escritura integrada; no se declara operación real.
+- La recepción del webhook usa el repositorio **en memoria de simulación**, no el adaptador de escritura Neon. No envía respuestas por WhatsApp. La [prueba autorizada con ROLLBACK](docs/PRUEBA_INTEGRACION_02_A.md) validó SQL sin persistencia; no validó COMMIT durable/concurrencia real ni operación por WhatsApp.
 - El contexto del motor compuesto caduca lógicamente al cumplirse exactamente 120 minutos sin actividad aceptada. Se limpia al siguiente tráfico; no hay temporizador ni contexto compartido entre procesos. Reiniciar pierde borradores y tickets ficticios del webhook, no tickets persistidos.
 - La idempotencia de confirmaciones con repositorio persistente se probó usando dos procesos Node independientes y una base ficticia temporal; esto no sustituye una prueba de concurrencia real en Neon.
 - `npm run test:payroll` ejecuta la suite aislada nueva sin Secrets, Neon ni Gemini. Se conservan `test:conversation`, `test:processing`, `test:webhook`, `check` y `build`.
-- No se implementan agenda 02-B, políticas documentales, Tu Voz operativo, panel ni encuestas. No hay despliegue ni cambios en Meta.
+- Esta entrega inicial no incluía agenda; 02-B se documenta arriba como motor separado de simulación. Políticas documentales, Tu Voz operativo, panel y encuestas no se implementan. No hay despliegue ni cambios en Meta.
 
 Las secciones siguientes describen iteraciones anteriores; las reglas vigentes de caducidad y tickets simulados son las de 02-A.
 

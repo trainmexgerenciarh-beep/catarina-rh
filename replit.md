@@ -1,5 +1,22 @@
 # Catarina RH — notas de desarrollo
 
+## Estado actual — Iteración 02-B simulada
+
+- Agenda única en memoria: `createSimulatedAgenda` y composición `createAgendaReception`.
+  Solo presencial de Nómina; no conectar por iniciativa propia al webhook ni a Neon.
+- Horario inicial ficticio lunes-viernes 14:00–17:30, bloques de 20 minutos
+  sin buffer, zona America/Mexico_City. Margen exacto >=120 minutos,
+  revalidado al registrar y para cancelar/reprogramar.
+- `npm run test:agenda`: 24 grupos ficticios; evidencia, esquema y límites en
+  [Iteración 02-B](docs/ITERACION_02_B.md). Sin cambios en documentos rectores.
+- Caducidad de contexto no cancela reservas; proceso nuevo pierde toda la
+  agenda ficticia. Deduplicación/atomicidad solo en instancia compartida.
+- 02-A durable sigue pendiente: ROLLBACK integrado no demostró COMMIT,
+  recuperación durable ni concurrencia entre conexiones. Webhook aún simulado.
+- Esta iteración no autoriza escrituras Neon: `test:payroll:neon` se ejecutó
+  exclusivamente en modo de lectura, sin `--rollback-authorized`.
+- Google Drive lo actualiza ChatGPT/Trainmex tras revisar, no Replit.
+
 ## Estado actual — Iteración 02-A
 
 - Recepción de nómina y tickets con repositorio de simulación; no habilitar escrituras Neon desde el webhook por iniciativa propia. El adaptador pasó una prueba autorizada en Neon dentro de ROLLBACK; COMMIT durable, reinicio y concurrencia entre conexiones siguen sin verificar.

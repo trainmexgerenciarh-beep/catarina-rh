@@ -6,6 +6,26 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
+## Iteración 02-B — agenda institucional en simulación
+
+**IMPLEMENTADA / PRUEBAS PASS / PENDIENTE DE ACEPTACIÓN.** Motor separado de
+simulación que compone 02-A sin cambiar el webhook ni el adaptador Neon.
+No se declara operación de tickets ni reservas por WhatsApp.
+
+| Registro | Evidencia actual |
+|---|---|
+| Esquema agenda | Inspección READ ONLY de citas, horarios_atencion, bloqueos_agenda y tickets; campos compatibles con simulación. No hay exclusión de solapamiento ni idempotencia de citas en Neon. Sin migración/escrituras. |
+| Agenda única | Un recurso compartido en memoria, presencial para Nómina; 20 minutos consecutivos, lunes-viernes 14:00–17:30 y zona IANA. |
+| Reserva y gestión | Oferta, elección, confirmación, consulta, cancelación y reprogramación ficticias; margen exacto de 120 minutos y revalidación de disponibilidad. |
+| Consistencia | Atomicidad e idempotencia solo en instancia/proceso compartidos; sin garantía distribuida ni durable. |
+| Pruebas | test:agenda 24 grupos PASS; test:payroll 15 grupos PASS; conversation, processing completo, webhook, check y build PASS. test:payroll:neon PASS exclusivamente de lectura, sin opción de escritura. |
+| 02-A durable | **SIGUE PENDIENTE**, no comprobado COMMIT/reinicio/concurrencia real. Webhook no conectado a escritura Neon. |
+| Próximo control | ChatGPT/Trainmex revisan/aceptan. Propuesta futura de exclusión/idempotencia en Neon solo documentada, no ejecutada. No se actualizó Drive. |
+
+Detalle reproducible, límites y fallo inicial TypeScript/Node ya corregido:
+[Iteración 02-B](ITERACION_02_B.md). Conteos de citas/tickets/horarios/bloqueos
+iniciales y en la revisión posterior: 0; catálogo activo conservado en 15.
+
 ## Estado de la Iteración 02-A
 
 **IMPLEMENTADO EN SIMULACIÓN / ADAPTADOR VALIDADO EN NEON CON ROLLBACK.**
@@ -23,7 +43,7 @@ No declarar terminado el Paquete Funcional 01 ni autorizado el inicio de 02-B.
 | Idempotencia confirmada | PASS en simulación: reintentos simultáneos, respuesta perdida, reinicio del motor y dos procesos Node con base ficticia persistida. | No equiparar con concurrencia/escritura real de Neon. |
 | SES-01 | PASS: 119m59s conserva, 120m caduca; duplicados no renuevan actividad ni recuperan borrador expirado. | Contexto no compartido ni recuperable tras reinicio; pendiente antes de producción. |
 | Adaptador PostgreSQL | **PASS integrado con ROLLBACK**: INSERT, dos reintentos secuenciales, folio estable, recuperación con nuevo adaptador y cierre sin cita/no resuelto; tres fixtures retirados, 11 tablas conservadas. | COMMIT durable, reinicio y concurrencia entre conexiones no ejecutados. No habilitado en webhook. |
-| Agenda 02-B | NO INICIADA. Solo se prepara oferta de pasar a esa siguiente fase; no hay reserva. | Requiere autorización independiente; no ejecutar disponibilidad ni operaciones de agenda. |
+| Agenda 02-B | Autorizada posteriormente e implementada **solo como simulación**, según sección superior. | No autoriza reservas Neon/WhatsApp ni resuelve el hito durable 02-A. |
 
 ## Resultados ejecutados en la entrega inicial (histórico)
 
@@ -92,4 +112,5 @@ no una desconexión de red ni reinicio. Evidencia, aislamiento y limpieza:
 - Contexto y reentregas de pasos no confirmados entre procesos/reinicios:
   limitación documentada, no solución productiva. Cualquier persistencia extra
   necesita revisión/autorización.
-- 02-B y módulos posteriores permanecen fuera de alcance y sin iniciar.
+- 02-B ahora tiene autorización y motor separado de simulación, no operación
+  real. Los módulos posteriores permanecen fuera de alcance y sin iniciar.
