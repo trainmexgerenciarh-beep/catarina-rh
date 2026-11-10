@@ -40,9 +40,18 @@ El webhook de WhatsApp está disponible en `/api/whatsapp/webhook`. La verificac
 ## Clasificación de mensajes — 5 de noviembre de 2026
 
 - El procesamiento consulta solo lectura los campos `id_servicio`, `categoria` y `subcategoria` de los servicios activos en Neon.
-- Gemini selecciona un `id_servicio` del catálogo vigente. El servidor valida que el identificador exista en esa lista; un ID desconocido o una consulta sin correspondencia produce «sin clasificar».
+- Gemini selecciona un `id_servicio` del catálogo vigente. El servidor valida que exista en esa lista. Solo un `id_servicio: null` válido representa «sin clasificar»; un ID desconocido/inactivo, catálogo vacío o respuesta inválida es un fallo técnico, nunca una clasificación exitosa.
 - El clasificador diferencia el pago de premios de puntualidad y asistencia de las consultas sobre sus reglas para obtenerlos.
 - `npm run test:processing` usa el catálogo real de Neon para probar mensajes ficticios de pago semanal, despensa, gasolina, vacaciones, permisos, horas extra, quejas, ideas de mejora, ambas consultas de premios y un caso sin clasificación. No inserta registros ni modifica el esquema.
+
+## Iteración correctiva 01-A — INC-001
+
+- [Registro técnico y evidencia de INC-001](docs/INC-001.md). El estado de aceptación corresponde a ChatGPT/Trainmex, no al ejecutor de las pruebas.
+- Se reprodujo una generación truncada por `MAX_TOKENS`: el alias actual usa un modelo con pensamiento y el límite anterior de 128 incluía esos tokens. El parser no comprobaba el motivo de terminación.
+- Se conserva Gemini y el catálogo consultado en Neon. El contrato exige JSON estructurado con una sola propiedad obligatoria, un ID activo o `null`; no se reparan ni se extraen fragmentos de respuestas inválidas.
+- Se comprueba terminación `STOP` y se distinguen fallos de formato/truncamiento, catálogo, integración y configuración mediante códigos seguros, sin respuestas del proveedor, mensajes, IDs o secretos en los diagnósticos.
+- `npm run test:classifier` ejecuta pruebas locales sin API/Neon/Secrets. `npm run test:awards` comprueba con Gemini y Neon, solo lectura, pago del premio frente a requisitos para obtenerlo. La suite `test:processing` incluye las pruebas locales del contrato.
+- El motor conversacional, su contexto temporal sin caducidad, el acceso a colaboradores y la validación HMAC permanecen sin cambios. Esta corrección no habilita operación real ni fases posteriores.
 
 ## Estado de configuración de WhatsApp — 5 de noviembre de 2026
 

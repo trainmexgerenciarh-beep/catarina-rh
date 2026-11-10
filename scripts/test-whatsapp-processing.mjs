@@ -10,9 +10,11 @@ import {
   lookupCollaboratorStatus
 } from "../src/lib/server/neon-collaborators.ts";
 import {
+  classificationFailureDetails,
   classifyService,
   selectActiveServiceById
 } from "../src/lib/server/gemini-service-classifier.ts";
+import { runClassifierContractChecks } from "./test-gemini-classifier.mjs";
 
 const syntheticPhone = "000000000000000";
 const syntheticServices = [
@@ -134,16 +136,11 @@ async function runUnitChecks() {
     classification: "sin clasificar"
   });
 
-  const noServices = await processIncomingMessages(makeEvent(), {
+  await assert.rejects(processIncomingMessages(makeEvent(), {
     lookupCollaborator: async () => "active",
     listActiveServices: async () => [],
     classifyService
-  });
-  assert.deepEqual(noServices[0], {
-    collaboratorStatus: "active",
-    serviceId: null,
-    classification: "sin clasificar"
-  });
+  }), { code: "EMPTY_SERVICE_CATALOG" });
 
   assert.deepEqual(
     selectActiveServiceById(syntheticServices[0].idServicio, syntheticServices),
@@ -152,18 +149,20 @@ async function runUnitChecks() {
       classification: "clasificado"
     }
   );
-  assert.deepEqual(selectActiveServiceById("invented-id", syntheticServices), {
-    serviceId: null,
-    classification: "sin clasificar"
+  assert.throws(() => selectActiveServiceById("invented-id", syntheticServices), {
+    code: "UNKNOWN_SERVICE_ID"
   });
-  assert.deepEqual(selectActiveServiceById(1, syntheticServices), {
+  assert.throws(() => selectActiveServiceById(1, syntheticServices), {
+    code: "INVALID_SCHEMA"
+  });
+  assert.deepEqual(selectActiveServiceById(null, syntheticServices), {
     serviceId: null,
     classification: "sin clasificar"
   });
 
   console.log("Procesamiento y extracción de eventos ficticios: PASS.");
   console.log("Estados activo, inactivo, no encontrado y ambiguo: PASS.");
-  console.log("ID ajeno al catálogo y sin catálogo: resultado «sin clasificar»: PASS.");
+  console.log("ID ajeno o catálogo vacío: fallo técnico; null semántico: «sin clasificar»: PASS.");
 }
 
 async function runNeonReadOnlyCheck() {
@@ -263,7 +262,11 @@ async function runGeminiCheck(services) {
     }
   ];
 
-  for (const testCase of cases) {
+  const awardsOnly = process.argv.includes("--awards-only");
+  const selectedCases = awardsOnly
+    ? cases.filter(({ label }) => label === "pago de premios" || label === "reglas de premios")
+    : cases;
+  for (const testCase of selectedCases) {
     const expectedService = services.find(
       (service) =>
         service.categoria === testCase.category &&
@@ -281,17 +284,11 @@ async function runGeminiCheck(services) {
         classifyService
       });
     } catch (error) {
-      const status =
-        typeof error === "object" &&
-        error !== null &&
-        "status" in error &&
-        typeof error.status === "number"
-          ? error.status
-          : "unavailable";
       console.error(
-        `Gemini classification call failed for ${testCase.label}; HTTP status: ${status}; provider details and response omitted.`
+        `Gemini: ${testCase.label}: FAIL.`,
+        classificationFailureDetails(error) ?? { kind: "unknown", details: "omitted" }
       );
-      throw new Error("Synthetic classification case failed");
+      throw error;
     }
 
     assert.equal(result.length, 1);
@@ -315,6 +312,7 @@ async function runGeminiCheck(services) {
     console.log(`Gemini clasifica contra el catálogo real: ${testCase.label}: PASS.`);
   }
 
+  if (awardsOnly) return;
   const unmatched = await classifyService(
     "Consulta ficticia ajena a Recursos Humanos sobre el pronóstico del clima.",
     services
@@ -327,13 +325,15 @@ async function runGeminiCheck(services) {
 }
 
 try {
+  await runClassifierContractChecks();
   await runUnitChecks();
   const activeServices = await runNeonReadOnlyCheck();
   await runGeminiCheck(activeServices);
   console.log("Prueba interna de procesamiento completada; no se guardaron mensajes ni se enviaron respuestas.");
-} catch {
+} catch (error) {
   console.error(
-    "Prueba de procesamiento fallida; revisa la conectividad de Neon/Gemini y los Secrets requeridos."
+    "Prueba de procesamiento: FAIL / INCOMPLETO.",
+    classificationFailureDetails(error) ?? { kind: "test_or_dependency", details: "omitted" }
   );
   process.exitCode = 1;
 } finally {

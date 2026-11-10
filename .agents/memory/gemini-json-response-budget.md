@@ -1,10 +1,10 @@
 ---
-name: Gemini JSON response budget
-description: SDK behavior for small structured classification responses with Gemini Flash.
+name: Gemini structured response budgets
+description: Thinking-model alias changes can truncate structured JSON despite historical budget settings.
 ---
 
-For constrained classifications that need only a small JSON value, configure a zero thinking budget and leave sufficient output tokens for the response. Otherwise the model's default thinking can consume a small `maxOutputTokens` budget and return no usable JSON.
+Output-token limits include thinking. A model alias can move to a version whose thinking controls differ; do not assume a historical zero thinking budget actually disables reasoning. Allow enough shared budget and inspect the completion reason before parsing JSON.
 
-**Why:** a closed-catalog service classification hit `MAX_TOKENS` with the default thinking behavior; setting `thinkingBudget` to zero and increasing the output allowance made all real classification checks pass.
+**Why:** on 2026-11-10 the Flash alias resolved to Gemini 3.8 Flash and consumed thinking tokens despite `thinkingBudget: 0`. Responses could end at `MAX_TOKENS` with nonempty but incomplete JSON. Earlier generic parse errors hid the truncation.
 
-**How to apply:** use this for deterministic, low-complexity JSON routing tasks; do not disable thinking by default for tasks that need deeper reasoning.
+**How to apply:** check the model's current supported thinking controls when an alias changes. Treat incomplete generation as a technical failure, never as a semantic lack of classification or as repairable JSON. Keep safe completion metadata, not raw model output.

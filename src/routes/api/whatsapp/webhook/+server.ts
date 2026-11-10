@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { json, type RequestHandler } from "@sveltejs/kit";
-import { classifyService } from "../../../../lib/server/gemini-service-classifier";
+import {
+  classificationFailureDetails,
+  classifyService
+} from "../../../../lib/server/gemini-service-classifier";
 import {
   createConversationManager,
   processIncomingConversationEvent,
@@ -105,9 +108,12 @@ export const POST: RequestHandler = async ({ request }) => {
       payload,
       conversationManager
     );
-  } catch {
+  } catch (error) {
     // Never log request data, message text, phone numbers, model output, or errors.
-    console.error("[whatsapp-webhook] Conversation processing failed");
+    console.error(
+      "[whatsapp-webhook] Conversation processing failed",
+      classificationFailureDetails(error) ?? { kind: "processing", details: "omitted" }
+    );
     return json(
       { received: false, error: "Message processing unavailable" },
       { status: 503 }
