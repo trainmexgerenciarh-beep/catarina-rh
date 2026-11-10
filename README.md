@@ -27,6 +27,16 @@ npm run check:integrations
 
 El webhook de WhatsApp está disponible en `/api/whatsapp/webhook`. La verificación GET requiere `WHATSAPP_VERIFY_TOKEN`; el POST requiere la firma `X-Hub-Signature-256` comprobada con `WHATSAPP_APP_SECRET` y no guarda mensajes.
 
+## Iteración técnica 01: recepción, menú y contexto
+
+- El motor reconoce colaboradores activos antes de continuar; los no encontrados, inactivos o ambiguos no reciben una sesión.
+- Presenta las tres categorías aprobadas, permite números o intención natural y el submenú de Tu Voz. Admite regresar, menú principal, cancelar, correcciones y aclaraciones breves.
+- El clasificador existente usa solo servicios activos de Neon para enrutar internamente; no presenta subcategorías ni respuestas documentales al colaborador.
+- El diálogo produce una respuesta solo para simulación. El webhook no la envía ni la devuelve a WhatsApp. Esta iteración no crea tickets, citas, consultas, denuncias, encuestas ni folios.
+- El contexto es una estructura mínima en memoria del proceso (pantalla, categoría y banderas de flujo); no conserva mensajes ni transcripciones. Se elimina al cancelar o al reiniciar el proceso. No se fija un tiempo de inactividad porque está pendiente de definición. No es compartido entre procesos ni persistente; un reinicio o una instancia distinta pierde el contexto.
+- Ejecuta `npm run test:conversation` para la simulación aislada; `npm run test:processing` mantiene las pruebas del catálogo real y Gemini; `npm run test:webhook` conserva la prueba HMAC.
+- El Paquete Funcional 01 sigue definido pero no implementado íntegramente; los módulos de tickets, agenda, respuestas documentales, Tu Voz operativo y encuestas permanecen fuera de esta iteración.
+
 ## Clasificación de mensajes — 5 de noviembre de 2026
 
 - El procesamiento consulta solo lectura los campos `id_servicio`, `categoria` y `subcategoria` de los servicios activos en Neon.

@@ -8,7 +8,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:integrations": "node scripts/check-integrations.mjs",
     "test:webhook": "node scripts/test-whatsapp-signature.mjs",
-    "test:processing": "node scripts/test-whatsapp-processing.mjs"
+    "test:processing": "node scripts/test-whatsapp-processing.mjs",
+    "test:conversation": "node scripts/test-whatsapp-conversation.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

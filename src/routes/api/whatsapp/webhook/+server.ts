@@ -2,13 +2,20 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { json, type RequestHandler } from "@sveltejs/kit";
 import { classifyService } from "../../../../lib/server/gemini-service-classifier";
 import {
+  createConversationManager,
+  processIncomingConversationEvent,
+  summarizeConversationResults
+} from "../../../../lib/server/whatsapp-conversation.js";
+import {
   listActiveServices,
   lookupCollaboratorStatus
 } from "../../../../lib/server/neon-collaborators";
-import {
-  processIncomingMessages,
-  summarizeProcessingResults
-} from "../../../../lib/server/whatsapp-message-processing.js";
+
+const conversationManager = createConversationManager({
+  lookupCollaborator: lookupCollaboratorStatus,
+  listActiveServices,
+  classifyService
+});
 
 function isValidSignature(
   rawBody: Buffer,
@@ -92,39 +99,26 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ received: false, error: "Invalid webhook payload" }, { status: 400 });
   }
 
-  let processingStage: "neon" | "gemini" = "neon";
   let results;
   try {
-    results = await processIncomingMessages(payload, {
-      lookupCollaborator: async (senderPhone) => {
-        processingStage = "neon";
-        return lookupCollaboratorStatus(senderPhone);
-      },
-      listActiveServices: async () => {
-        processingStage = "neon";
-        return listActiveServices();
-      },
-      classifyService: async (text, services) => {
-        processingStage = "gemini";
-        return classifyService(text, services);
-      }
-    });
+    results = await processIncomingConversationEvent(
+      payload,
+      conversationManager
+    );
   } catch {
-    // Log only the subsystem stage, never error details or request data.
-    console.error("[whatsapp-webhook] Message processing failed", {
-      stage: processingStage
-    });
+    // Never log request data, message text, phone numbers, model output, or errors.
+    console.error("[whatsapp-webhook] Conversation processing failed");
     return json(
       { received: false, error: "Message processing unavailable" },
       { status: 503 }
     );
   }
 
-  // Only aggregate counts are logged. Message text and phone numbers are neither
-  // persisted nor returned to WhatsApp.
+  // The generated conversation prompt is intentionally discarded. Only aggregate
+  // processing counts are logged; no WhatsApp reply or user content is emitted.
   console.info(
-    "[whatsapp-webhook] Message processing completed",
-    summarizeProcessingResults(results)
+    "[whatsapp-webhook] Conversation simulation completed",
+    summarizeConversationResults(results)
   );
 
   return json({ received: true });

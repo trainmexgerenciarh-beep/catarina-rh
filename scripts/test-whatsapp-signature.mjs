@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import assert from "node:assert/strict";
 
 const appSecret = process.env.WHATSAPP_APP_SECRET;
 const devDomain = process.env.REPLIT_DEV_DOMAIN;
@@ -60,6 +61,7 @@ try {
   if (validSignature.status !== 200) {
     throw new Error(`Firma válida: se esperaba 200, se recibió ${validSignature.status}.`);
   }
+  assert.deepEqual(await validSignature.json(), { received: true });
   console.log("Firma válida: HTTP 200.");
 
   const invalid = await post(invalidSignature);
