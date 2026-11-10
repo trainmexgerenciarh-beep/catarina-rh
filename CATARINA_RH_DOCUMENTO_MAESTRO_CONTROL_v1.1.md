@@ -1,3 +1,90 @@
+# Catarina RH — Documento Maestro de Control
+
+**Versión interna vigente:** 1.2
+**Fecha rectora:** 10 de noviembre de 2026
+**Fuente rectora:** [Documento Maestro de Control de Catarina RH en Google Drive](https://docs.google.com/document/d/1FZwL9pcLkrU6TL5EW77j7UygGJ3tqYbNq5ZqFCy3duU/edit), pestaña «CATARINA RH — DOCUMENTO MAESTRO DE CONTROL».
+**Estado:** diseño funcional del Paquete Funcional 01 consolidado; implementación de sus flujos pendiente. La aplicación no está publicada. La clasificación inicial con Gemini y el catálogo de servicios se reportaron probados hasta el commit `c4ee893`; esto no implica que el Paquete Funcional 01 esté implementado.
+
+> **Prevalencia y conservación:** esta actualización rectora v1.2 sustituye las decisiones funcionales incompatibles de la v1.1. El texto original v1.1 que sigue se conserva íntegro como antecedente histórico. El Plano Funcional y Modelo de Datos tiene su propia actualización interna vigente v1.1 al inicio de su archivo; el SQL y la descripción histórica de las 11 tablas se conservan allí. No recrear tablas.
+
+## 1. Definición actual de Catarina — APROBADO
+
+Catarina es la recepcionista y secretaria digital de Recursos Humanos para aproximadamente 120–130 colaboradores de Trainmex. El colaborador inicia desde su WhatsApp personal; Catarina reconoce su teléfono en el directorio mantenido por RH, comprueba que el registro esté activo y permite o deniega el acceso. No habrá autorregistro. Catarina presenta los tres servicios, comprende la necesidad con Gemini, hace pocas preguntas adaptativas, resume y confirma lo entendido, y orienta, registra o agenda según corresponda.
+
+Catarina no calcula nómina, no investiga denuncias ni resuelve asuntos laborales por cuenta propia. RH no atiende un chat humano dentro de Catarina; el contacto humano ocurre fuera del chatbot. El diseño y control se rigen por estos documentos; Replit desarrolla únicamente paquetes aprobados y GitHub conserva el repositorio oficial.
+
+## 2. Catálogo oficial — APROBADO Y CARGADO EN NEON
+
+El catálogo tiene tres categorías visibles y 15 subcategorías para clasificación interna, estadísticas y preparación de la atención:
+
+- **Nómina y prestaciones (8):** Pago semanal; Despensa; Gasolina; Recibo de nómina; Premios de puntualidad y asistencia; Horas extra; Descuentos; Otros.
+- **Políticas y procedimientos (5):** Premios de puntualidad y asistencia; Permisos; Vacaciones; Política de riesgos psicosociales; Adelantos de nómina.
+- **Tu Voz en Trainmex (2):** Quejas y denuncias; Ideas y mejoras.
+
+Neon contiene 15 servicios activos (8/5/2). Gemini solo puede elegir un servicio activo existente o «sin clasificar»; el servidor valida la elección. El ID se consulta en Neon, nunca se inventa ni se fija por número de fila. El catálogo puede evolucionar sin requerir cambios al esquema.
+
+## 3. Bienvenida y navegación — APROBADO
+
+Tras verificar el acceso, Catarina se presenta, explica brevemente los tres servicios y ofrece ejemplos sencillos. Acepta números o lenguaje natural, amplía ejemplos al entrar a cada servicio, y permite volver al menú principal, regresar, cancelar y corregir datos sin perder contexto útil. Evita interrogatorios, repeticiones y mensajes extensos. El motor de conversaciones aún no está implementado.
+
+## 4. Nómina y prestaciones — APROBADO
+
+La finalidad es recibir y preparar una aclaración, no resolver pagos. Catarina identifica el pago semanal más reciente por su viernes correspondiente o pregunta a qué otro viernes se refiere; solicita el problema, obtiene solo los detalles necesarios, resume y confirma.
+
+Cuando el asunto queda confirmado, registra un ticket con folio y ofrece horarios de la agenda única para una **cita presencial** con RH. Si el colaborador declina agendar, cierra el ticket como «Cerrado sin cita», sin calificarlo como resuelto, e informa a RH en el panel. No deja casos abiertos indefinidamente y no envía encuesta si no hubo cita.
+
+La regla para una gestión interrumpida por inactividad está pendiente de definición; no se debe inventar ni programar.
+
+## 5. Políticas y procedimientos — APROBADO
+
+Catarina consulta documentos autorizados de RH referenciados en Google Drive. Si encuentra información suficiente, responde de manera clara, breve y fundamentada, contabiliza la consulta y termina sin cita ni encuesta.
+
+Si no hay fuente suficiente, indica que no dispone de una fuente para responder y ofrece una **cita a distancia** en la agenda única, para contacto posterior de RH por teléfono o WhatsApp fuera del chatbot. El ticket conserva la pregunta y su resumen. Cada pregunta sin fuente adecuada alimenta el indicador de documentación faltante con tema, subcategoría, resumen y frecuencia, para priorizar la creación o actualización de fuentes. La fecha de la cita es el compromiso de atención; no se debe inventar otro plazo.
+
+## 6. Tu Voz en Trainmex — APROBADO
+
+Catarina ofrece el submenú «Quejas y denuncias» o «Ideas y mejoras»; también puede confirmar una opción narrada espontáneamente. Pide una explicación suficiente, permite un relato de extensión media o mayor si el colaborador lo desea, resume, confirma y pregunta si autoriza que personal de RH le contacte posteriormente. La respuesta Sí/No se registra claramente en el relato o resumen y se entrega un folio.
+
+La autorización de contacto es únicamente informativa para RH: no condiciona la recepción y no genera por sí misma acciones, citas ni seguimientos dentro de Catarina. Cualquier comunicación o gestión posterior ocurre fuera de la herramienta en esta fase. No prometer anonimato en el canal identificado de WhatsApp, no evaluar la veracidad y no emitir resoluciones laborales. No se envía encuesta ordinaria a Tu Voz; el flujo de `seguimientos_denuncia` no se construye en este paquete.
+
+## 7. Agenda única y encuestas — APROBADO CON PENDIENTES TÉCNICOS
+
+Hay una sola agenda institucional y una persona que realiza la atención. El horario inicial es lunes a viernes, 14:00–17:30, con bloqueos y sin doble reserva. Nómina utiliza modalidad presencial; las políticas sin respuesta documental, modalidad a distancia por teléfono o WhatsApp gestionado por RH fuera del chatbot. La cita compromete una atención, no necesariamente la resolución del asunto.
+
+Al día siguiente de la **fecha programada** de la cita se envía la encuesta, sin condicionar el envío a que RH haya marcado la cita como realizada o el asunto como resuelto. Debe distinguir «¿Recibió la atención?» de satisfacción (1–5, solo si efectivamente la recibió), resolución (Sí/Parcialmente/No) y comentario opcional. Si no hubo atención, no se solicita una calificación ficticia. La falta de respuesta a la encuesta no prueba incumplimiento; se contrastan la captura de RH y la declaración del colaborador.
+
+No hay encuestas para consultas documentales autoatendidas, tickets de nómina cerrados sin cita ni reportes de Tu Voz. La tabla `encuestas` está vinculada a citas, pero no tiene un campo explícito «recibió atención». Antes de tocar Neon, se debe revisar compatibilidad y proponer un ajuste mínimo solo si resulta imprescindible. No equiparar «no recibió atención» con «no resuelto». Los mensajes salientes deben respetar las condiciones de Meta.
+
+**Pendiente:** definir si los intervalos de 20 minutos significan duración de la cita o espacio adicional entre citas. No programar una interpretación sin aprobación.
+
+## 8. Datos y alcance administrativo — APROBADO
+
+Se conservan las 11 tablas existentes en Neon: `colaboradores`, `servicios`, `tickets`, `citas`, `horarios_atencion`, `bloqueos_agenda`, `consultas`, `fuentes`, `encuestas`, `denuncias` y `seguimientos_denuncia`. No recrear tablas ni ejecutar migraciones por iniciativa de Replit. Los campos actuales parecen admitir la clasificación, tickets, citas/modalidad, consultas con resumen/contexto y relatos de Tu Voz; revisar cada flujo antes de concluir compatibilidad total.
+
+Los administradores contemplados son Generalista de RH y Gerente de RH; los permisos diferenciados siguen pendientes. En Tu Voz, el módulo de recepción muestra el reporte y si se autorizó contacto, pero no gestiona seguimiento posterior. Guardar solo la información operativa necesaria, no transcripciones completas por defecto. Continúa prevista la exportación mensual de tickets cerrados a Google Sheets; no eliminar automáticamente registros de Neon y excluir Tu Voz del archivo común.
+
+El panel debe mostrar tickets, agenda, cumplimiento, encuestas, Tu Voz e indicador de faltantes documentales. En Tu Voz muestra el reporte y la autorización de contacto como información, sin gestión posterior dentro del sistema en esta etapa.
+
+## 9. Estado técnico al 10 de noviembre de 2026 — REPORTADO, NO AUDITADO LÍNEA POR LÍNEA
+
+El proyecto se reporta como SvelteKit + TypeScript en Replit, PostgreSQL en Neon con 11 tablas, GitHub como repositorio oficial, Gemini vía `@google/genai` y WhatsApp Cloud API con callback HTTPS. Se reportó un evento de prueba auténtico de Meta validado con HMAC-SHA256. La aplicación no está publicada para colaboradores y no se ha confirmado la recepción de un mensaje iniciado desde un teléfono real.
+
+También se reportó la clasificación contra 15 servicios activos de Neon y la aprobación de las pruebas `npm run check`, `npm run build`, `npm run test:webhook` y `npm run test:processing`. La secuencia de commits comunicada concluye en `c4ee893`. Estos datos son reportes de estado, no una auditoría independiente línea por línea.
+
+No están implementados la conversación completa, las respuestas documentales, el registro funcional de tickets/citas, el panel de RH, el envío de encuestas, los indicadores finales ni la operación productiva. No describirlos como terminados.
+
+## 10. Plan y control de cambios — APROBADO COMO MÉTODO
+
+Cerrar primero la documentación interna y después sincronizarla en el repositorio. Los paquetes técnicos posteriores se trabajan en este orden: (i) motor de recepción, menú y contexto; (ii) aclaraciones y agenda única; (iii) fuentes documentales, citas a distancia e indicador de faltantes; (iv) recepción de Tu Voz y folio; (v) panel, encuestas e indicadores; (vi) pruebas integrales y piloto controlado.
+
+Cada paquete debe especificar objetivo, reglas, datos, pruebas de aceptación y exclusiones. Antes de implementar los módulos afectados deben resolverse: duración/intervalo de 20 minutos, timeout de conversaciones abandonadas, representación de «no recibió atención» en encuestas, configuración operativa de contacto remoto, permisos administrativos, plataforma de alojamiento productivo, retención histórica y reglas de Meta para mensajes diferidos.
+
+No introducir una segunda agenda, nuevos servicios ni controles no aprobados.
+
+---
+
+## Historial conservado: Documento Maestro v1.1 (3 de noviembre de 2026)
+
 # CATARINA RH — DOCUMENTO MAESTRO DE CONTROL
 
 **Empresa:** Manufacturas Trainmex  

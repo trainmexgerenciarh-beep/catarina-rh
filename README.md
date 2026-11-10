@@ -2,6 +2,13 @@
 
 Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
 
+## Documentos rectores vigentes
+
+- [Documento Maestro de Control — versión interna 1.2](CATARINA_RH_DOCUMENTO_MAESTRO_CONTROL_v1.1.md)
+- [Plano Funcional y Modelo de Datos — versión interna 1.1](CATARINA_RH_PLANO_FUNCIONAL_Y_MODELO_DATOS_v1.0.md)
+
+El Paquete Funcional 01 está definido, pero su implementación permanece pendiente. Los archivos conservan debajo el historial anterior y el SQL de las 11 tablas existentes.
+
 ## Desarrollo
 
 ```bash
