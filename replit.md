@@ -1,6 +1,22 @@
 # Catarina RH — notas de desarrollo
 
-## Estado vigente — entrega integral, NO OUTBOUND
+## Estado vigente — preactivación, NO OUTBOUND
+
+- Referencia de aceptación/activación: `docs/PREACTIVACION.md`. Ningún envío,
+  cron externo, publicación o cambio de cuentas/Secrets/Meta autorizado por
+  inferencia. No se modificó esquema: siguen 14 tablas y 15 servicios/cinco
+  horarios. Columna `encuestas.entrega` únicamente propuesta, NO aplicada.
+- Sesiones RH opacas/revocables en memoria por proceso, ocho horas; reiniciar
+  exige login y otra instancia falla cerrado. **Por qué:** revocar copias de
+  cookie al salir sin inventar una tabla de sesiones. No confundir con contexto
+  del colaborador compartido en Neon y TTL 120 min.
+- Generalista no edita fuentes/catálogo ni exporta; Tu Voz solo lectura Gerente.
+  Bootstrap privado no configura cuentas reales. No debilitar auth si falta Secret.
+- `/api/cron` autenticado prepara, no envía. Dispatcher solo `FAKE_ONLY`;
+  entrega durable requiere autorización explícita de esquema y trabajo pendiente.
+  Salud pública mínima; readiness privada no declara listo un canal bloqueado.
+- Adaptador Node explícito en Vite; `npm start` sirve build. No cambiar
+  workflow/hosting productivo por iniciativa.
 
 - Informe vigente: `docs/ENTREGA_INTEGRAL.md`; control:
   `docs/CONTROL_PROYECTO.md`. Las secciones 02-C4/D1A siguientes son históricas.
@@ -19,13 +35,14 @@
 - HMAC RAW/GET intactos. Transporte saliente bloqueado por defecto; ningún
   camino actual habilita envíos. Mantenimiento solo limpia contexto vencido y
   prepara encuestas, sin enviar. No publicar ni activar por iniciativa.
-- Pruebas vigentes: 20 grupos SQL real con limpieza de 14 tablas, nueve grupos
-  locales, siete de navegador, regresiones/check/build PASS. La variante de
+- Pruebas vigentes: 24 grupos SQL real con limpieza de 14 tablas, nueve grupos
+  integrales, 13 preactivación, cinco auth HTTPS y ocho UI; regresiones/check/build
+  PASS. La variante de
   prueba con COMMIT necesita autorización vigente y flag explícito; no ejecutar
   automáticamente fixtures reales ni scripts históricos de esquema doce.
 - Activación pendiente del responsable: cuentas RH, fuentes institucionales,
   destino/permisos Sheets, revisión de salida/plantillas Meta y hosting.
-  Drive leído realmente; exportación Sheets y entregas WhatsApp NO certificadas.
+  Drive leído realmente; exportación Sheets real y entregas WhatsApp NO certificadas.
 - ChatGPT/Trainmex validan, aceptan y actualizan los tres apartados de Drive.
   Replit no debe declararlos aceptados ni editar Google Drive en esta entrega.
 

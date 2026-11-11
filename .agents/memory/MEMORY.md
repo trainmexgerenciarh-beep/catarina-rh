@@ -1,3 +1,4 @@
 - [SvelteKit 3 setup](sveltekit-v3.md) — current SvelteKit config belongs in `sveltekit()` in Vite, not `svelte.config.js`.
 - [WhatsApp verification logs](whatsapp-webhook-logging.md) — Meta verification sends its token in the URL; redact query values before dev logging.
 - [Gemini JSON response budgets](gemini-json-response-budget.md) — aliases can change thinking controls; inspect completion metadata before treating truncated output as malformed JSON.
+- [Neon pooled connections](neon-pooler.md) — session advisory locks and backend TLS observations do not describe a stable application connection through transaction pooling.

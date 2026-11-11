@@ -1,4 +1,4 @@
-import adapter from "@sveltejs/adapter-auto";
+import adapter from "@sveltejs/adapter-node";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { createLogger, defineConfig } from "vite";
 
@@ -29,7 +29,7 @@ const customLogger: typeof viteLogger = {
 
 function redactWebhookQuery(message: string): string {
   return message.replace(
-    /([?&](?:hub\.verify_token|hub\.challenge)=)[^&\s]+/gi,
+    /([?&](?:hub\.verify_token|hub\.challenge|token|secret|password|key)=)[^&\s]+/gi,
     "$1[redacted]"
   );
 }

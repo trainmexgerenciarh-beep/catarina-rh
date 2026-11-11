@@ -6,7 +6,42 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
-## Entrega integral autorizada — implementación y verificación
+## Preactivación — ejecución y verificación
+
+**IMPLEMENTADA EN REPOSITORIO / ÚLTIMAS PRUEBAS PASS / DESPACHO Y PILOTO
+BLOQUEADOS / PENDIENTE ACEPTACIÓN.**
+
+- Acceso RH opaco/revocable, cookies seguras, CSRF, JSON acotado y mínimo
+  privilegio de dos perfiles. Login/logout reales con cuentas ficticias en
+  proceso HTTPS privado, sin credenciales del proyecto ni cuentas universales.
+- Mejoras funcionales de formularios, edición de fechas/horas PostgreSQL,
+  bloqueos editables y botones según rol. Panel desktop/móvil verificado.
+- Adaptador Node explícito; conexión TLS cliente Neon con certificado verificado.
+  `pg_stat_ssl` no se usa como equivalente del TLS cliente del endpoint pooled.
+- Exportador corregido tras detectar lock de sesión incompatible con pool
+  transaccional: lock de transacción acotada, batch Sheets atómico con recibo
+  técnico único, huella/relectura antes de archivar y recuperación de acuses.
+- Sheets solo con proveedor ficticio, pero SQL/locks/archivado reales aislados.
+  Drive leyó realmente la referencia rectora; no se aprobaron fuentes RH.
+- Cron autenticado para preparar encuestas y motor de despacho `FAKE_ONLY`.
+  Falta una columna de estado durable de entrega; **solo propuesta, no DDL**.
+  No se sobrecargaron eventos/contextos ni se marcó `enviada_en` sin envío.
+- Última integración: **24 grupos Neon PASS** con COMMIT/procesos/concurrencia;
+  14 huellas iguales al terminar, cero residuos/locks, 15 servicios y cinco
+  horarios conservados. Se eliminaron 55 eventos, un contexto, dos encuestas,
+  una consulta, seis recibos, cuatro citas, cinco tickets, Tu Voz/fuente/
+  colaborador ficticios; bloqueo eliminado durante escenario. Secuencias no reset.
+- **13 grupos de preactivación, 5 de auth HTTPS, 8 UI, 9 integral y regresiones
+  completas PASS**, Gemini real, GET HTTPS 200/HMAC 200/401/401, check 0/0, build
+  PASS. El informe conserva los fallos iniciales y su corrección, no los oculta.
+- Sin Secrets/Meta/Google Drive/hosting productivo modificados, sin WhatsApp
+  saliente ni publicación; OpenSSL solo como herramienta local de pruebas TLS.
+
+Informe de aceptación, evidencia, secuencias y **lista única de dependencias
+del titular**: [PREACTIVACION.md](PREACTIVACION.md). Actualización de los tres
+apartados rectores y autorización del piloto corresponden a ChatGPT/Trainmex.
+
+## Antecedente: entrega integral autorizada — implementación y verificación
 
 **IMPLEMENTADA EN REPOSITORIO / VERIFICACIONES PASS / PENDIENTE ACEPTACIÓN
 Y ACTIVACIONES EXTERNAS. NO PUBLICADA. SIN ENVÍOS REALES.**
@@ -244,7 +279,7 @@ La recuperación ensayada usa un adaptador nuevo dentro de la misma transacción
 no una desconexión de red ni reinicio. Evidencia, aislamiento y limpieza:
 [prueba controlada](PRUEBA_INTEGRACION_02_A.md).
 
-## Pendientes concretos actuales
+## Pendientes registrados en esa etapa (histórico)
 
 - Aceptar la prueba controlada ya autorizada/ejecutada y decidir si procede
   un ensayo separado de COMMIT, reinicio y concurrencia entre conexiones con

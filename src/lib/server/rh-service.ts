@@ -63,22 +63,27 @@ export async function readRH(pool:pg.Pool,resource:string,role:Role) {
 export async function prepareSurveys(pool:ConnectionPool) {
   return inAgendaTransaction(pool,async c=>{
     const rows=(await c.query(`INSERT INTO public.encuestas(id_cita)
-      SELECT a.id_cita FROM public.citas a
-      WHERE a.estado<>'CANCELADA'
+      SELECT a.id_cita FROM public.citas a JOIN public.tickets t USING(id_ticket)
+      JOIN public.colaboradores c USING(id_colaborador) JOIN public.servicios s USING(id_servicio)
+      WHERE a.estado<>'CANCELADA' AND c.activo IS TRUE
+        AND regexp_replace(coalesce(c.whatsapp,''),'[^0-9]','','g') ~ '^[0-9]{8,15}$'
+        AND s.categoria IN ('Nómina y prestaciones','Políticas y procedimientos')
         AND (a.inicio_programado AT TIME ZONE 'America/Mexico_City')::date
             < (clock_timestamp() AT TIME ZONE 'America/Mexico_City')::date
         AND NOT EXISTS(SELECT 1 FROM public.encuestas e WHERE e.id_cita=a.id_cita)
-      RETURNING id_encuesta::text`)).rows;
+      ORDER BY a.id_cita LIMIT 100 RETURNING id_encuesta::text`)).rows;
     return {prepared:rows.length,outbound:false};
   });
 }
 export async function writeRH(pool:pg.Pool,resource:string,action:string,d:Data,role:Role) {
   if(resource==="voz")throw new PersistenceError("ACCESS_DENIED");
+  if(resource==="fuentes"&&action==="save"&&role!=="gerente")throw new PersistenceError("ACCESS_DENIED");
   if(resource==="encuestas"&&action==="prepare")return prepareSurveys(pool);
   if(resource==="fuentes"&&action==="verify") {
     const r=(await pool.query("SELECT *,vigente_desde::text FROM public.fuentes WHERE id_fuente=$1",[id(d,"id_fuente")])).rows[0];
     if(!r)throw new PersistenceError("NOT_FOUND");
-    await readSource(r);return {verified:true};
+    try{await readSource(r);}catch{throw new PersistenceError("DRIVE_READ_NOT_CONFIRMED");}
+    return {verified:true,readOnly:true,officialApproval:"NOT_INFERRED"};
   }
   return inAgendaTransaction(pool,async c=>{
     if(resource==="colaboradores"&&action==="save"){

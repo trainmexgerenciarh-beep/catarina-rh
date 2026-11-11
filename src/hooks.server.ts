@@ -8,7 +8,7 @@ export const handle:Handle=async({event,resolve})=>{
     onError:()=>console.error("[maintenance] Preparation unavailable; outbound remains disabled")
   });
   const response=await resolve(event);
-  if(event.url.pathname.startsWith("/api/")||event.url.pathname==="/panel"){
+  if(event.url.pathname.startsWith("/api/")||["/panel","/readyz","/healthz"].includes(event.url.pathname)){
     response.headers.set("cache-control","no-store");
     response.headers.set("x-content-type-options","nosniff");
     response.headers.set("referrer-policy","same-origin");

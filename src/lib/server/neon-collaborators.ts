@@ -1,4 +1,5 @@
 import pg from "pg";
+import {neonPoolOptions} from "./postgres-config.ts";
 import type { CollaboratorStatus } from "./whatsapp-message-processing.js";
 import type { Identity } from "./payroll-tickets.ts";
 
@@ -30,13 +31,7 @@ export function getNeonPool(): pg.Pool {
     throw new Error("DATABASE_URL is not configured");
   }
 
-  pool ??= new pg.Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: true },
-    connectionTimeoutMillis: 10_000,
-    max: 4,
-    allowExitOnIdle: true
-  });
+  pool ??= new pg.Pool(neonPoolOptions(connectionString));
 
   return pool;
 }

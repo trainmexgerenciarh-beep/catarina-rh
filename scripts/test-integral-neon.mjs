@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
-import {randomUUID,createHmac} from "node:crypto";
+import {randomUUID,createHmac,createHash} from "node:crypto";
 import {spawn} from "node:child_process";
 import pg from "pg";
+import {neonPoolOptions,neonTlsVerified} from "../src/lib/server/postgres-config.ts";
+import {createCronHandler} from "../src/lib/server/cron-handler.ts";
+import {exportMonth} from "../src/lib/server/monthly-export.ts";
+import {createSheetsFixture} from "./helpers/sheets-fixture.mjs";
 import {createDurableConversation} from "../src/lib/server/durable-conversation.ts";
 import {createNeonTicketRepository} from "../src/lib/server/payroll-tickets.ts";
 import {createNeonAgendaRepository} from "../src/lib/server/neon-agenda.ts";
@@ -11,7 +15,7 @@ import {postLockBoundary} from "./fixtures/neon-c3-safety.mjs";
 import {localDate,plusDays} from "../src/lib/server/agenda-time.ts";
 
 const pools=[];
-const pool=()=>{const p=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:true},max:4,allowExitOnIdle:true});pools.push(p);return p;};
+const pool=()=>{const p=new pg.Pool(neonPoolOptions());pools.push(p);return p;};
 async function deps(p,owner){
   const services=(await p.query("SELECT id_servicio::text,categoria,subcategoria FROM public.servicios WHERE activo IS TRUE ORDER BY categoria,subcategoria")).rows.map(r=>({idServicio:r.id_servicio,categoria:r.categoria,subcategoria:r.subcategoria}));
   return {services,lookupIdentity:async phone=>{
@@ -60,7 +64,9 @@ if(process.argv.includes("--child")){
     baseline=await snapshot();assert.equal(baseline.servicios.count,15);assert.equal(baseline.horarios_atencion.count,5);
     for(const t of tables.filter(t=>!["servicios","horarios_atencion"].includes(t)))assert.equal(baseline[t].count,0,"Requires isolated operational baseline");
     initialSequences=(await observer.query("SELECT sequencename,last_value::text FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename")).rows;
-    console.log(JSON.stringify({phase:"baseline",counts:Object.fromEntries(tables.map(t=>[t,baseline[t].count]))}));
+    console.log(JSON.stringify({phase:"baseline",fingerprint:createHash("sha256").update(JSON.stringify(baseline)).digest("hex"),
+      counts:Object.fromEntries(tables.map(t=>[t,baseline[t].count]))}));
+    assert(neonTlsVerified(observer));console.log("TLS Neon verify-full: socket del cliente cifrado y certificado verificado: PASS.");
     if(!process.argv.includes("--authorized-synthetic-commit")){
       console.log("PREFLIGHT READ-ONLY: PASS. No fixtures creados. COMMIT sintético requiere autorización vigente y --authorized-synthetic-commit.");
     }else{
@@ -219,7 +225,7 @@ if(process.argv.includes("--child")){
     pass("Acuse perdido después de COMMIT real, proceso nuevo recupera un solo folio");
     const source=await writeRH(p,"fuentes","save",{nombre:prefix,categoria:"Vacaciones",
       url_drive:"https://docs.google.com/document/d/synthetic-test-document-not-real",version:"SYNTHETIC",
-      vigente_desde:"2026-01-01",activo:false},"generalista");
+      vigente_desde:"2026-01-01",activo:false},"gerente");
     assert(source.id_fuente);
     const blockDate=plusDays(localDate(Date.now()),20);
     const block=await writeRH(p,"bloqueos","save",{fecha:blockDate,hora_inicio:"15:00",hora_fin:"15:10",motivo:prefix},"generalista");
@@ -227,8 +233,57 @@ if(process.argv.includes("--child")){
     const blocked=await ar.listAvailable({ticketId:t1.id,collaboratorId:owner,date:blockDate,modality:"PRESENCIAL"});
     const {mexicoInstant}=await import("../src/lib/server/agenda-time.ts");
     assert(!blocked.includes(new Date(mexicoInstant(blockDate,"15:00")).toISOString()));
+    const editedBlock=await writeRH(p,"bloqueos","save",{id_bloqueo:String(block.id_bloqueo),fecha:blockDate,
+      hora_inicio:"15:20",hora_fin:"15:30",motivo:prefix},"generalista");
+    assert.equal(String(editedBlock.id_bloqueo),String(block.id_bloqueo));
+    const editedSlots=await ar.listAvailable({ticketId:t1.id,collaboratorId:owner,date:blockDate,modality:"PRESENCIAL"});
+    assert(editedSlots.includes(new Date(mexicoInstant(blockDate,"15:00")).toISOString()));
+    assert(!editedSlots.includes(new Date(mexicoInstant(blockDate,"15:20")).toISOString()));
     await writeRH(p,"bloqueos","delete",{id_bloqueo:String(block.id_bloqueo)},"generalista");
     pass("Panel SQL real: directorio, fuente inactiva ficticia y bloqueo parcial editable");
+    await assert.rejects(writeRH(p,"fuentes","save",{nombre:"denied"},"generalista"),e=>e.code==="ACCESS_DENIED");
+    await assert.rejects(writeRH(p,"servicios","save",{id_servicio:"1",activo:false},"generalista"),e=>e.code==="ACCESS_DENIED");
+    pass("Privilegios mínimos: Generalista no modifica fuentes oficiales ni catálogo");
+    const due=(await observer.query(`SELECT a.id_cita::text FROM public.citas a JOIN public.tickets t USING(id_ticket)
+      WHERE t.id_colaborador=$1 AND a.estado='PROGRAMADA' ORDER BY a.id_cita DESC LIMIT 1`,[owner])).rows[0];
+    const yesterday=(await observer.query("SELECT to_char((clock_timestamp() AT TIME ZONE 'America/Mexico_City')-interval '1 day','YYYY-MM-DD') AS date")).rows[0].date;
+    const movedDue=await observer.query(`UPDATE public.citas SET inicio_programado=$2,fin_programado=$3 WHERE id_cita=$1
+      AND id_ticket IN(SELECT id_ticket FROM public.tickets WHERE id_colaborador=$4)`,
+      [due.id_cita,new Date(mexicoInstant(yesterday,"14:20")).toISOString(),new Date(mexicoInstant(yesterday,"14:40")).toISOString(),owner]);
+    assert.equal(movedDue.rowCount,1);
+    const cronSecret="synthetic-cron-authorization-private-only";
+    const cronFor=pool=>createCronHandler({secret:()=>cronSecret,prepare:()=>prepareSurveys(pool)});
+    const cronRequest=()=>({request:new Request("https://synthetic.invalid/api/cron",{method:"POST",
+      headers:{authorization:`Bearer ${cronSecret}`,"content-type":"application/json"},body:JSON.stringify({task:"prepare"})})});
+    const cronResults=await Promise.all([cronFor(p)(cronRequest()),cronFor(p2)(cronRequest())]);
+    assert(cronResults.every(r=>r.status===200));
+    const cronBodies=await Promise.all(cronResults.map(r=>r.json()));assert(cronBodies.every(r=>r.committed&&r.outbound==="OFF"));
+    assert.equal((await observer.query("SELECT count(*)::int n FROM public.encuestas WHERE id_cita=$1",[due.id_cita])).rows[0].n,1);
+    assert.equal((await observer.query("SELECT enviada_en FROM public.encuestas WHERE id_cita=$1",[due.id_cita])).rows[0].enviada_en,null);
+    assert.equal((await observer.query("SELECT estado FROM public.citas WHERE id_cita=$1",[due.id_cita])).rows[0].estado,"PROGRAMADA");
+    pass("Cron autenticado concurrente con SQL/COMMIT real: una encuesta, sin envío ni inferir atención");
+    await send("encuesta");await child({text:"si",key:key()});await send("4");
+    await child({text:"Parcialmente",key:key()});await send("sin comentario");
+    const attendedSurvey=(await observer.query("SELECT recibio_atencion,calificacion,resolucion FROM public.encuestas WHERE id_cita=$1",[due.id_cita])).rows[0];
+    assert.deepEqual(attendedSurvey,{recibio_atencion:true,calificacion:4,resolucion:"Parcialmente"});
+    const unresolved=(await observer.query("SELECT t.resuelto_en,a.estado FROM public.citas a JOIN public.tickets t USING(id_ticket) WHERE a.id_cita=$1",[due.id_cita])).rows[0];
+    assert.equal(unresolved.resuelto_en,null);assert.equal(unresolved.estado,"PROGRAMADA");
+    pass("Encuesta SQL entre procesos: atención Sí, satisfacción 4 y resolución Parcialmente sin alterar ticket/cita");
+    const priorTarget=process.env.RH_EXPORT_SPREADSHEET_ID;
+    try{
+      process.env.RH_EXPORT_SPREADSHEET_ID="synthetic-sheet-no-external-call";
+      const month=(await observer.query("SELECT to_char(clock_timestamp() AT TIME ZONE 'America/Mexico_City','YYYY-MM') AS month")).rows[0].month;
+      const sheetTitle=`Tickets_${month.replace("-","_")}`;
+      const sheets=createSheetsFixture(sheetTitle),proxy=sheets.proxy,sheetRows=sheets.rows;
+      const exports=await Promise.allSettled([exportMonth(p,month,{proxy}),exportMonth(p2,month,{proxy})]);
+      assert(exports.some(r=>r.status==="fulfilled"&&r.value.appended===1));
+      assert(exports.filter(r=>r.status==="rejected").every(r=>r.reason.code==="PERSISTENCE_BUSY"));
+      assert.equal((await exportMonth(p,month,{proxy})).appended,0);assert.equal(sheets.appends,1);
+      assert.equal(sheetRows.length,2);assert.equal(sheetRows[1].length,10);
+      const archived=(await observer.query("SELECT archivado_en,resuelto_en FROM public.tickets WHERE id_ticket=$1",[ticket.id_ticket])).rows[0];
+      assert(archived.archivado_en);assert.equal(archived.resuelto_en,null);
+    }finally{if(priorTarget===undefined)delete process.env.RH_EXPORT_SPREADSHEET_ID;else process.env.RH_EXPORT_SPREADSHEET_ID=priorTarget;}
+    pass("Exportación: locks/archivado SQL real y Sheets ficticio concurrente, huella por ticket, sin duplicar/borrar");
     const appSecret="synthetic-signature-secret",manager=()=>createDurableConversation(d,p);
     const post=createWebhookPost(manager,{secret:()=>appSecret,logger:{info(){},error(){}}});
     const signed=async(messages,valid=true)=>{
@@ -284,7 +339,10 @@ if(process.argv.includes("--child")){
         removed.colaboradores=(await observer.query("DELETE FROM public.colaboradores WHERE id_colaborador=$1 AND nombre='SYNTHETIC INTEGRATION TEST'",[owner])).rowCount;
         assert.equal(removed.colaboradores,1);await observer.query("COMMIT");
         const after=await snapshot();assert.deepEqual(after,baseline);
-        console.log(JSON.stringify({phase:"cleanup",removed,all14FingerprintsEqual:true,
+        const remainingLocks=(await observer.query("SELECT count(*)::int n FROM pg_locks WHERE locktype='advisory' AND classid=0 AND objid=2026111002 AND objsubid=1 AND granted")).rows[0].n;
+        assert.equal(remainingLocks,0);
+        console.log(JSON.stringify({phase:"cleanup",removed,all14FingerprintsEqual:true,remainingExportLocks:remainingLocks,
+          fingerprint:createHash("sha256").update(JSON.stringify(after)).digest("hex"),
           counts:Object.fromEntries(tables.map(t=>[t,after[t].count])),
           sequencesBefore:initialSequences,sequencesAfter:(await observer.query("SELECT sequencename,last_value::text FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename")).rows}));
       }catch{await observer.query("ROLLBACK").catch(()=>{});console.log("CLEANUP_REQUIRES_ATTENTION");process.exitCode=1;}

@@ -194,6 +194,13 @@
     modal = resourceName;
     modalRow = row;
     form = { ...row };
+    for (const key of ['fecha', 'vigente_desde']) {
+      if (typeof form[key] === 'string' && /^\d{4}-\d{2}-\d{2}/.test(form[key] as string))
+        form[key] = (form[key] as string).slice(0, 10);
+    }
+    for (const key of ['hora_inicio', 'hora_fin']) {
+      if (typeof form[key] === 'string') form[key] = (form[key] as string).slice(0, 5);
+    }
     if (resourceName === 'colaboradores' || resourceName === 'servicios' || resourceName === 'fuentes') {
       if (form.activo === undefined) form.activo = true;
     }
@@ -257,8 +264,10 @@
       }
       if (!response.ok || payload.error || payload.ok !== true) throw new Error(payload.error || 'El servidor no confirmó el cambio. No se actualizó la vista.');
       modal = '';
-      notice = 'Cambio guardado.';
       await loadResource(resource, true);
+      notice = action === 'verify' ? 'Lectura Drive confirmada. Esta prueba no aprueba el documento como fuente institucional.' :
+        action === 'check-export' ? 'Lectura Sheets confirmada. La escritura requiere una prueba autorizada por el titular.' :
+        'Operación confirmada por el servidor.';
     } catch (reason) {
       error = reason instanceof Error ? reason.message : 'No se pudo completar la operación.';
     } finally {
@@ -574,7 +583,7 @@
                 {#if agendaView === 'week'}<div class="week-controls"><button type="button" aria-label="Semana anterior" on:click={() => moveWeek(-1)}>‹</button><span>{weekLabel()}</span><button type="button" aria-label="Semana siguiente" on:click={() => moveWeek(1)}>›</button></div>{/if}
                 <button class="button primary" type="button" on:click={() => openForm('bloqueos')}><span aria-hidden="true">+</span>Agregar bloqueo</button>
               {/if}
-              {#if ['colaboradores','fuentes','bloqueos'].includes(resource)}<button class="button primary" type="button" on:click={() => openForm(resource)}><span aria-hidden="true">+</span>{resource === 'bloqueos' ? 'Agregar bloqueo' : `Agregar ${resource === 'colaboradores' ? 'colaborador' : 'fuente'}`}</button>{/if}
+              {#if ['colaboradores','fuentes','bloqueos'].includes(resource) && (resource !== 'fuentes' || mode === 'demo' || role === 'gerente')}<button class="button primary" type="button" on:click={() => openForm(resource)}><span aria-hidden="true">+</span>{resource === 'bloqueos' ? 'Agregar bloqueo' : `Agregar ${resource === 'colaboradores' ? 'colaborador' : 'fuente'}`}</button>{/if}
               {#if resource === 'configuracion'}<label class="month-picker">Mes<input type="month" bind:value={period} /></label>{/if}
               <button class="icon-button" type="button" on:click={() => loadResource(resource, true)} aria-label="Actualizar datos" title="Actualizar datos">↻</button>
             </div>
@@ -604,7 +613,8 @@
             {#if resource === 'configuracion'}
               <section class="export-card">
                 <div class="export-icon">EX</div><div class="export-copy"><span class="eyebrow">ARCHIVO HISTÓRICO</span><h2>Preparar exportación mensual</h2><p>Solicita la preparación de tickets ordinarios cerrados. Tu Voz queda fuera del archivo común. La integración con Google Sheets puede no estar habilitada todavía.</p></div>
-                <button class="button primary" type="button" disabled={busy || !period} on:click={() => postAction('configuracion', 'export', { month: period })}>{busy ? 'Preparando…' : `Preparar ${period}`}</button>
+                <button class="button secondary" type="button" disabled={busy || mode === 'demo' || role !== 'gerente'} on:click={() => postAction('configuracion', 'check-export', {})}>Verificar lectura Sheets</button>
+                <button class="button primary" type="button" disabled={busy || !period || mode === 'admin' && role !== 'gerente'} on:click={() => postAction('configuracion', 'export', { month: period })}>{busy ? 'Preparando…' : `Preparar ${period}`}</button>
               </section>
               <section class="integration-status" aria-label="Estado de integraciones de salida">
                 <div class="integration-head"><span class="eyebrow">CANALES Y CONECTORES</span><span>ESTADO DE ESTA VISTA</span></div>
@@ -636,10 +646,10 @@
                       {:else}<span class:clamp-text={['resumen','descripcion','comentario','pregunta_resumen','detail'].includes(key)}>{formatValue(row[key], key)}</span>{/if}
                     </td>{/each}
                     <td class="row-actions">
-                      {#if resource === 'colaboradores' || resource === 'servicios' || resource === 'fuentes'}<button class="text-action" type="button" on:click={() => openForm(resource, row)}>{resource === 'servicios' ? 'Estado' : 'Editar'}</button>{/if}
+                      {#if resource === 'colaboradores' || (resource === 'servicios' || resource === 'fuentes') && (mode === 'demo' || role === 'gerente')}<button class="text-action" type="button" on:click={() => openForm(resource, row)}>{resource === 'servicios' ? 'Estado' : 'Editar'}</button>{/if}
                       {#if resource === 'tickets'}<button class="text-action" type="button" on:click={() => { modal = 'detail'; modalRow = row; }}>Ver detalle</button>{#if !String(row.estado || '').toLowerCase().includes('resuelt') && !String(row.estado || '').toLowerCase().includes('cerr') }<button class="text-action" type="button" on:click={() => openAction('close', row)}>Cerrar</button><button class="text-action resolve-action" type="button" on:click={() => openAction('resolve', row)}>Resolver</button>{/if}{/if}
                       {#if (resource === 'citas' || resource === 'agenda' && row.id_cita) && !['REALIZADA','NO_ASISTIO'].includes(String(row.estado || '').toUpperCase())}<button class="text-action" type="button" on:click={() => openAction('attendance', row)}>Registrar atención</button>{/if}
-                      {#if resource === 'bloqueos' || resource === 'agenda' && row.id_bloqueo}<button class="text-action danger-action" type="button" on:click={() => { modalRow = row; runRowAction('delete'); }}>Eliminar</button>{/if}
+                      {#if resource === 'bloqueos' || resource === 'agenda' && row.id_bloqueo}<button class="text-action" type="button" on:click={() => openForm('bloqueos', row)}>Editar</button><button class="text-action danger-action" type="button" on:click={() => { modalRow = row; runRowAction('delete'); }}>Eliminar</button>{/if}
                       {#if resource === 'fuentes'}<button class="text-action" type="button" on:click={() => { modalRow = row; runRowAction('verify'); }}>Verificar</button>{/if}
                       {#if resource === 'encuestas'}<button class="text-action" type="button" on:click={() => { modalRow = row; runRowAction('prepare'); }}>Preparar</button><button class="text-action" type="button" on:click={() => openAction('respond', row)}>Registrar respuesta</button>{/if}
                       {#if resource === 'voz'}<span class="read-only">Solo lectura</span>{/if}
@@ -716,7 +726,7 @@
                 {#if categoryError}<span class="field-error" role="alert">{categoryError} <button type="button" on:click={loadCategoryOptions}>Reintentar</button></span>{/if}
                 {#if !categoryLoading && !categoryError && categoryOptionsLoaded && categoryOptions.length === 0}<span class="field-error">El catálogo no devuelve categorías disponibles. Reintenta o solicita una revisión de Servicios.<button type="button" on:click={() => { categoryOptionsLoaded = false; loadCategoryOptions(); }}>Reintentar</button></span>{/if}
               </label>
-            {:else}<label class="form-field"><span>{field.label}{#if ['id_colaborador','nombre','id_servicio','categoria','subcategoria','fecha','hora_inicio','hora_fin','motivo'].includes(field.key)} <em>Obligatorio</em>{/if}</span><input type={field.type || 'text'} bind:value={form[field.key]} readonly={field.key === 'id_servicio' && Boolean(modalRow.id_servicio)} required={['id_colaborador','nombre','id_servicio','categoria','subcategoria','fecha','hora_inicio','hora_fin','motivo'].includes(field.key)} /></label>{/if}
+            {:else}<label class="form-field"><span>{field.label}{#if ['id_colaborador','nombre','id_servicio','categoria','subcategoria','fecha','hora_inicio','hora_fin','motivo'].includes(field.key)} <em>Obligatorio</em>{/if}</span><input type={field.type || 'text'} bind:value={form[field.key]} readonly={(field.key === 'id_servicio' && Boolean(modalRow.id_servicio)) || (field.key === 'id_colaborador' && Boolean(modalRow.id_colaborador))} required={['id_colaborador','nombre','id_servicio','categoria','subcategoria','fecha','hora_inicio','hora_fin','motivo'].includes(field.key)} /></label>{/if}
           {/each}
           <div class="modal-actions"><button class="button secondary" type="button" on:click={() => modal = ''}>Cancelar</button><button class="button primary" type="submit" disabled={busy || (modal === 'fuentes' && (!form.categoria || categoryLoading || Boolean(categoryError)))}>{busy ? 'Guardando…' : 'Guardar cambios'}</button></div>
         </form>

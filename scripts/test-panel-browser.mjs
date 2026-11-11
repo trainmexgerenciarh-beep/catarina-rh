@@ -43,6 +43,26 @@ try{
   await page.getByRole("button",{name:"Verificar",exact:true}).click();
   await page.getByRole("alert").filter({hasText:/Demostración sin acceso/}).waitFor();
   pass("Editor de fuentes: catálogo y vigencia, ausencia de conexión no finge verificación");
+  await page.goto(base+"/demo?resource=bloqueos");await page.getByRole("button",{name:"Agregar bloqueo"}).click();
+  const future=new Date(Date.now()+14*86400000);while([0,6].includes(future.getUTCDay()))future.setUTCDate(future.getUTCDate()+1);
+  const blockDate=future.toISOString().slice(0,10);
+  await modal.locator("input[type=date]").fill(blockDate);
+  await modal.locator("input[type=time]").nth(0).fill("15:00");
+  await modal.locator("input[type=time]").nth(1).fill("15:10");
+  await modal.getByLabel("Motivo").fill("SYNTHETIC BROWSER BLOCK");
+  await modal.getByRole("button",{name:/Guardar/}).click();await modal.waitFor({state:"hidden"});
+  const firstBlock=(await (await page.request.get(base+"/api/demo/bloqueos")).json()).rows[0];
+  await page.getByRole("button",{name:"Editar",exact:true}).click();
+  assert.equal(await modal.locator("input[type=date]").inputValue(),blockDate);
+  await modal.locator("input[type=time]").nth(0).fill("15:20");
+  await modal.locator("input[type=time]").nth(1).fill("15:30");
+  await modal.getByRole("button",{name:/Guardar/}).click();await modal.waitFor({state:"hidden"});
+  const editedBlock=(await (await page.request.get(base+"/api/demo/bloqueos")).json()).rows[0];
+  assert.equal(editedBlock.id_bloqueo,firstBlock.id_bloqueo);assert.equal(editedBlock.hora_inicio,"15:20");
+  page.once("dialog",dialog=>dialog.accept());
+  await page.getByRole("button",{name:"Eliminar",exact:true}).click();
+  await page.waitForFunction(()=>!document.body.textContent.includes("SYNTHETIC BROWSER BLOCK"));
+  pass("Bloqueos: alta/edición mismo ID/eliminación confirmadas por backend demo");
   await page.goto(base+"/demo?resource=simulacion");
   const send=async text=>{
     await page.getByLabel("Mensaje para Catarina").fill(text);

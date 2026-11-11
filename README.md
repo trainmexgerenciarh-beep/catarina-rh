@@ -3,7 +3,38 @@
 Aplicación existente de recepción y administración de Recursos Humanos de Trainmex.
 SvelteKit + TypeScript, Neon PostgreSQL y SDK oficial de Gemini.
 
-## Entrega integral — 11 de noviembre de 2026
+## Preactivación — 11 de noviembre de 2026
+
+**Código y pruebas entregados; SIN publicación ni mensajes WhatsApp reales.**
+Informe único y lista exacta de dependencias del titular:
+**[docs/PREACTIVACION.md](docs/PREACTIVACION.md)**.
+
+- Login/logout endurecidos y revocables, permisos mínimos Generalista/Gerente,
+  JSON acotado y CSRF. No se configuraron cuentas RH reales ni Secrets.
+- Panel funcional, edición de fechas PostgreSQL/bloqueos y permisos de botones.
+- Exportador con recibos atómicos Sheets, huellas/relectura y lock transaccional
+  compatible con pooler Neon; **destino real pendiente**, no se escribió Sheets.
+- Cron autenticado de preparación y dispatcher ficticio probado. Despacho real
+  **BLOQUEADO**: falta autorización del estado durable de entrega, no se migró.
+- Adaptador Node explícito y TLS cliente Neon verificado, sin avisos anteriores
+  de adapter-auto/alias SSL en la compilación y pruebas finales.
+- Últimos resultados: **24 grupos SQL real**, **13 preactivación**, **5 login
+  HTTPS aislado**, **8 navegador**, nueve integrales y regresiones PASS,
+  Gemini real, check 0/0 y build PASS.
+- Limpieza: 14 huellas iguales, cero fixtures/locks; 15 servicios y cinco
+  horarios intactos. Las secuencias consumidas no se reiniciaron.
+- `/healthz` 200; `/readyz` protegido; `/api/cron` cerrado sin `CRON_SECRET`.
+  No se instaló scheduler externo. El mantenimiento residente es best-effort.
+
+`npm run admin:bootstrap` prepara hashes privados **sin configurar Secrets**.
+`npm run cron:prepare` requiere destino/credencial autorizados y no envía mensajes.
+Las sesiones del panel son locales por proceso y requieren re-login al reiniciar;
+el contexto de colaboradores sí permanece compartido en Neon con TTL 120 min.
+
+## Antecedente: entrega integral — 11 de noviembre de 2026
+
+La sección siguiente conserva la evidencia de esa entrega; el estado y los
+límites posteriores están en el informe de preactivación enlazado arriba.
 
 - **[Abrir demostración aislada](/demo)**: directorio, tickets, agenda, fuentes,
   consultas, Tu Voz, encuestas, indicadores y configuración, con datos ficticios.

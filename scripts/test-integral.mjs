@@ -6,6 +6,7 @@ import {groundedAnswer,driveId} from "../src/lib/server/institutional-sources.ts
 import {createDemoStore} from "../src/lib/server/demo-store.ts";
 import {startMaintenance} from "../src/lib/server/maintenance.ts";
 import {exportMonth} from "../src/lib/server/monthly-export.ts";
+import {createSheetsFixture} from "./helpers/sheets-fixture.mjs";
 let groups=0;const pass=name=>{groups++;console.log(name+": PASS");};
 // In-process, fictional-only auth configuration. Does not change Replit Secrets.
 const original={accounts:process.env.RH_ADMIN_ACCOUNTS,secret:process.env.SESSION_SECRET};
@@ -73,31 +74,22 @@ pass("Mantenimiento con temporizador inyectado, encuestas preparadas y sin purga
 const oldTarget=process.env.RH_EXPORT_SPREADSHEET_ID;
 try{
   process.env.RH_EXPORT_SPREADSHEET_ID="synthetic-spreadsheet";
-  const exported=[],archiveCalls=[],exportSql=[];
-  let sheetsCreated=false,appendCount=0,loseAck=true;
+  const archiveCalls=[],exportSql=[];
+  const sheets=createSheetsFixture("Tickets_2026_11",{lostAckOnce:true}),proxy=sheets.proxy,exported=sheets.rows;
   const exportPool={async connect(){return {release(){},async query(q,params){
     exportSql.push(q);
+    if(q.includes("pg_try_advisory_xact_lock"))return {rows:[{acquired:true}]};
     if(q.includes("FROM public.tickets"))return {rows:[
       {id_ticket:"100",categoria:"Nómina y prestaciones",resumen:"=SYNTHETIC",estado:"cerrado sin cita",cerrado_en:"2026-11-01T12:00:00Z"},
       {id_ticket:"101",categoria:"Políticas y procedimientos",resumen:"SYNTHETIC",estado:"cerrado",cerrado_en:"2026-11-01T12:00:00Z"}]};
     if(q.startsWith("UPDATE public.tickets"))archiveCalls.push(params[0]);
     return {rows:[]};
   }};}};
-  const proxy=async(path,init)=>{
-    if(path.includes("?fields="))return Response.json({sheets:sheetsCreated?[{properties:{title:"Tickets_2026_11"}}]:[]});
-    if(path.endsWith(":batchUpdate")){sheetsCreated=true;return Response.json({});}
-    if(path.includes(":append?")){
-      appendCount++;exported.push(...JSON.parse(init.body).values);
-      if(loseAck){loseAck=false;throw new Error("SYNTHETIC_EXTERNAL_ACK_LOST");}
-      return Response.json({});
-    }
-    return Response.json({values:exported.map(r=>[r[0]])});
-  };
   await assert.rejects(exportMonth(exportPool,"2026-11",{proxy}),e=>e.code==="SHEETS_CONNECTION_PENDING");
   assert.equal(archiveCalls.length,0);
   const recovered=await exportMonth(exportPool,"2026-11",{proxy});
   assert.deepEqual(recovered,{archived:2,appended:0,deleted:0});
-  assert.equal(appendCount,1);assert.equal(exported.length,2);assert.equal(exported[0][5],"'=SYNTHETIC");
+  assert.equal(sheets.appends,1);assert.equal(exported.length,3);assert.equal(exported[1][5],"'=SYNTHETIC");
   assert(exportSql.some(q=>q.includes("s.categoria IN ('Nómina y prestaciones','Políticas y procedimientos')")));
   assert(!exportSql.some(q=>/DELETE|denuncias/.test(q)));
   pass("Sheets simulado: acuse perdido, relectura/deduplicación, archivado solo verificado y sin Tu Voz");

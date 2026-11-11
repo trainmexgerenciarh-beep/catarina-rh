@@ -75,7 +75,7 @@
           <div class="pending-state" role="status">
             <span class="pending-mark">—</span><strong>Acceso aún no configurado</strong>
             <p>La autenticación administrativa no está habilitada. No hay una contraseña compartida ni una cuenta universal.</p>
-            <p class="pending-instruction">Solicita a la persona administradora del proyecto configurar una cuenta autorizada. No envíes credenciales por correo o chat.</p>
+            <p class="pending-instruction">La persona titular debe autorizar cuentas específicas de Generalista o Gerencia y configurarlas mediante Secrets. No envíes contraseñas por correo o chat. La guía segura está en docs/PREACTIVACION.md.</p>
           </div>
         {:else}
           {#if error}<div class="alert" role="alert">{error}</div>{/if}
