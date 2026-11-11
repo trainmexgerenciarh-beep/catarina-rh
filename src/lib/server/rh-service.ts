@@ -18,7 +18,12 @@ export const queries:Record<string,string>={
     FROM public.citas a JOIN public.tickets t USING(id_ticket) LEFT JOIN public.colaboradores c USING(id_colaborador)
     ORDER BY a.inicio_programado DESC LIMIT 2000`,
   bloqueos:"SELECT *,id_bloqueo::text FROM public.bloqueos_agenda ORDER BY fecha,hora_inicio LIMIT 2000",
-  fuentes:"SELECT *,id_fuente::text,vigente_desde::text FROM public.fuentes ORDER BY nombre",
+  fuentes:`SELECT f.*,f.id_fuente::text,f.vigente_desde::text,
+    CASE WHEN f.activo THEN 'APROBADA' WHEN a.accion='fuente_INACTIVA' THEN 'INACTIVA' ELSE 'BORRADOR' END AS estado_documental,
+    CASE WHEN f.activo AND a.accion='fuente_APROBADA' THEN a.actor END AS aprobador
+    FROM public.fuentes f LEFT JOIN LATERAL
+      (SELECT actor,accion FROM public.auditoria_accesos WHERE cuenta='fuente:'||f.id_fuente
+       AND accion LIKE 'fuente_%' ORDER BY id DESC LIMIT 1) a ON true ORDER BY f.nombre`,
   consultas:"SELECT *,id_consulta::text FROM public.consultas ORDER BY fecha DESC LIMIT 2000",
   voz:"SELECT *,id_denuncia::text,'VOZ-'||id_denuncia AS folio FROM public.denuncias ORDER BY recibida_en DESC LIMIT 2000",
   encuestas:`SELECT e.id_encuesta::text,e.id_cita::text,e.enviada_en,e.respondida_en,
@@ -32,7 +37,7 @@ export async function readRH(pool:pg.Pool,resource:string,role:Role) {
   if(resource==="voz"&&role!=="gerente")throw new PersistenceError("ACCESS_DENIED");
   if(resource==="configuracion")return [
     {label:"WhatsApp",value:"BLOQUEADO",detail:"Sin envíos automáticos. Requiere aprobación y lista autorizada."},
-    {label:"Neon",value:"Persistente",detail:"14 tablas; agenda institucional compartida"},
+    {label:"Neon",value:"Persistente",detail:"16 tablas; agenda institucional compartida y control de accesos"},
     {label:"Google Drive",value:"Verificable por fuente",detail:"Registra URL, versión y vigencia; verifica permisos antes de responder."},
     {label:"Google Sheets",value:process.env.RH_EXPORT_SPREADSHEET_ID?"Configurado; verificar permisos":"Destino pendiente",detail:"Archivo mensual de tickets ordinarios cerrados, sin Tu Voz ni borrado."},
     {label:"Encuestas",value:"Entrega durable FAKE_ONLY",detail:"Día siguiente, reclamación/reintentos en Neon; sin envío real ni cron externo activado"},
@@ -78,7 +83,7 @@ export async function prepareSurveys(pool:ConnectionPool) {
     return {prepared:rows.length,outbound:false};
   });
 }
-export async function writeRH(pool:pg.Pool,resource:string,action:string,d:Data,role:Role) {
+export async function writeRH(pool:pg.Pool,resource:string,action:string,d:Data,role:Role,actor?:string) {
   if(resource==="voz")throw new PersistenceError("ACCESS_DENIED");
   if(resource==="fuentes"&&action==="save"&&role!=="gerente")throw new PersistenceError("ACCESS_DENIED");
   if(resource==="encuestas"&&action==="prepare")return prepareSurveys(pool);
@@ -154,8 +159,12 @@ export async function writeRH(pool:pg.Pool,resource:string,action:string,d:Data,
       driveId(text(d,"url_drive",500));
       dateNumber(text(d,"vigente_desde",10));if(typeof d.activo!=="boolean")throw new PersistenceError("INVALID_INPUT");
       const p=[text(d,"nombre",180),text(d,"categoria",180),d.url_drive,text(d,"version",80),d.vigente_desde,d.activo];
-      if(d.id_fuente)return (await c.query("UPDATE public.fuentes SET nombre=$1,categoria=$2,url_drive=$3,version=$4,vigente_desde=$5,activo=$6 WHERE id_fuente=$7 RETURNING id_fuente",[...p,id(d,"id_fuente")])).rows[0];
-      return (await c.query("INSERT INTO public.fuentes(nombre,categoria,url_drive,version,vigente_desde,activo) VALUES($1,$2,$3,$4,$5,$6) RETURNING id_fuente",p)).rows[0];
+      const row=d.id_fuente?(await c.query("UPDATE public.fuentes SET nombre=$1,categoria=$2,url_drive=$3,version=$4,vigente_desde=$5,activo=$6 WHERE id_fuente=$7 RETURNING id_fuente",[...p,id(d,"id_fuente")])).rows[0]:
+        (await c.query("INSERT INTO public.fuentes(nombre,categoria,url_drive,version,vigente_desde,activo) VALUES($1,$2,$3,$4,$5,$6) RETURNING id_fuente",p)).rows[0];
+      if(!row)throw new PersistenceError("NOT_FOUND");
+      if(actor)await c.query("INSERT INTO public.auditoria_accesos(actor,accion,cuenta) VALUES($1,$2,$3)",
+        [actor,d.activo?"fuente_APROBADA":d.fuente_inactiva?"fuente_INACTIVA":"fuente_BORRADOR",`fuente:${row.id_fuente}`]);
+      return row;
     }
     if(resource==="encuestas"&&action==="respond"){
       if(typeof d.recibio_atencion!=="boolean")throw new PersistenceError("INVALID_INPUT");

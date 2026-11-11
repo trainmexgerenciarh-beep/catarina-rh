@@ -8,6 +8,7 @@ import{createServer}from"node:https";
 import{chromium}from"@playwright/test";
 import{createAccount}from"./admin-bootstrap.mjs";
 import{createDemoStore}from"../src/lib/server/demo-store.ts";
+import{OWNER_EMAIL}from"../src/lib/server/admin-users.ts";
 if(process.argv.includes("--private-https-child")){
   process.once("message",async config=>{
     try{
@@ -112,6 +113,12 @@ if(process.argv.includes("--private-https-child")){
     pass("Login REAL HTTPS/navegador de dos cuentas ficticias: cookies Secure/HttpOnly/Strict y roles distintos");
     stage="roles-and-csrf";
     assert.equal((await generalist.request.get(base+"/api/rh/voz")).status(),403);
+    assert.equal((await anonymous.request.get(base+"/api/admin/users")).status(),401);
+    assert.equal((await generalist.request.get(base+"/api/admin/users")).status(),403);
+    assert.equal((await generalist.request.post(base+"/api/admin/users",{headers:{origin:base},data:{action:"add",email:"synthetic@example.invalid"}})).status(),403);
+    assert.equal((await manager.request.get(base+"/api/admin/users")).status(),403);
+    assert.equal((await generalist.request.get(base+"/panel?resource=usuarios")).status(),403);
+    assert.equal((await anonymous.request.get(base+"/panel?resource=usuarios")).status(),401);
     for(const [resource,action]of [["servicios","save"],["fuentes","save"],["configuracion","export"]])
       assert.equal((await generalist.request.post(base+"/api/rh/"+resource,{headers:{origin:base},data:{action,data:{}}})).status(),403);
     assert.equal((await manager.request.post(base+"/api/admin/logout",{headers:{origin:"https://attacker.invalid"},data:{}})).status(),403);
@@ -162,6 +169,43 @@ if(process.argv.includes("--private-https-child")){
     assert.equal((await context.request.get(base+"/api/rh/voz")).status(),401);
     await context.close();
     pass("HTTPS real: cambio de permisos revoca sesión y ausencia de configuración bloquea login y módulos");
+    stage="owner-ui";
+    // Isolated child, NO database credentials. Synthetic password in RAM only.
+    await setConfig([createAccount(OWNER_EMAIL,"gerente",password)]);
+    const owner=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});
+    const op=await loginPage(owner,OWNER_EMAIL);
+    assert.equal((await owner.request.post(base+"/api/admin/users",{headers:{origin:"https://attacker.invalid"},data:{action:"add"}})).status(),403);
+    const users=[{email:OWNER_EMAIL,role:"gerente",activo:true,revision:"1"}],audit=[];
+    await owner.route("**/api/admin/users",async route=>{
+      if(route.request().method()==="GET")return route.fulfill({json:{rows:users,audit}});
+      const d=route.request().postDataJSON(),u=users.find(x=>x.email===d.email);
+      if(d.action==="add")users.push({email:d.email,role:"generalista",activo:true,revision:"1"});
+      else if(d.action==="edit"){u.email=d.newEmail;u.revision=String(+u.revision+1);}
+      else{u.activo=d.action==="activate";u.revision=String(+u.revision+1);}
+      audit.push({actor:OWNER_EMAIL,accion:d.action,cuenta:d.email,fecha:new Date().toISOString()});
+      return route.fulfill({json:{ok:true}});
+    });
+    await op.getByRole("link",{name:/Usuarios y accesos/}).click();
+    await op.getByRole("heading",{name:"Usuarios y accesos",exact:true}).waitFor();
+    assert.equal(await op.locator(".account-row").first().getByRole("button").count(),0);
+    await op.getByRole("button",{name:"Agregar cuenta",exact:true}).click();
+    await op.getByLabel("Correo gestor").fill("fixture-browser@example.invalid");
+    await op.getByRole("dialog").getByRole("button",{name:"Agregar cuenta",exact:true}).click();
+    const fixture=()=>op.locator(".account-row").filter({hasText:"fixture-browser@example.invalid"});
+    await fixture().getByRole("button",{name:"Desactivar",exact:true}).click();
+    await op.getByRole("alertdialog").getByRole("button",{name:"Desactivar cuenta",exact:true}).click();
+    await fixture().getByRole("button",{name:"Activar",exact:true}).click();
+    await op.getByRole("alertdialog").getByRole("button",{name:"Activar cuenta",exact:true}).click();
+    await fixture().getByRole("button",{name:"Revocar",exact:true}).click();
+    await op.getByRole("alertdialog").getByRole("button",{name:"Revocar acceso",exact:true}).click();
+    await fixture().getByRole("button",{name:"Editar correo",exact:true}).click();
+    await op.getByLabel(/Correo nuevo/).fill("fixture-renamed@example.invalid");
+    await op.getByRole("dialog").getByRole("button",{name:"Guardar correo",exact:true}).click();
+    await op.locator(".account-row").filter({hasText:"fixture-renamed@example.invalid"}).waitFor();
+    assert.equal(audit.length,5);
+    await op.setViewportSize({width:402,height:874});
+    assert(await op.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
+    pass("Usuarios UI escritorio/móvil: cinco acciones con API mock; login/SSR y CSRF HTTPS reales");
     console.log(`AUTH NAVEGADOR: ${groups} grupos PASS. Login/logout/TLS/roles reales; datos RH mock; proceso privado sin Secrets reales, Neon ni Graph.`);
   }catch(e){console.error(`AUTH_TEST_FAILED stage=${stage} kind=${e?.name??"unknown"}`);process.exitCode=1;}
   finally{await browser?.close();await stop();if(dir)await rm(dir,{recursive:true,force:true});}

@@ -44,7 +44,7 @@ if(process.argv.includes("--child")){
   };
   try{
     tables=(await p.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).rows.map(r=>r.tablename);
-    assert.equal(tables.length,14);
+    assert.equal(tables.length,16);
     assert.equal((await p.query("SELECT data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='encuestas' AND column_name='entrega'")).rows[0]?.data_type,"jsonb");
     before=await snap();
     assert.equal(before.servicios.n,15);assert.equal(before.horarios_atencion.n,5);
@@ -175,7 +175,7 @@ if(process.argv.includes("--child")){
         removed.colaboradores=(await c.query("DELETE FROM public.colaboradores WHERE id_colaborador=$1",[owner])).rowCount;
         await c.query("COMMIT");
         const after=await snap();assert.deepEqual(after,before);
-        console.log(JSON.stringify({phase:"cleanup",removed,all14FingerprintsUnchanged:true,counts:Object.fromEntries(tables.map(t=>[t,after[t].n])),fingerprint:createHash("sha256").update(JSON.stringify(after)).digest("hex"),sequencesBefore:seqBefore,sequencesAfter:(await p.query("SELECT sequencename,last_value::text FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename")).rows}));
+        console.log(JSON.stringify({phase:"cleanup",removed,all16FingerprintsUnchanged:true,counts:Object.fromEntries(tables.map(t=>[t,after[t].n])),fingerprint:createHash("sha256").update(JSON.stringify(after)).digest("hex"),sequencesBefore:seqBefore,sequencesAfter:(await p.query("SELECT sequencename,last_value::text FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename")).rows}));
       }catch(e){await c.query("ROLLBACK").catch(()=>{});console.error("CLEANUP_FAILED_STOP",e.code??e.message);process.exitCode=1;}
       finally{c.release();}
     }

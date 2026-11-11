@@ -11,9 +11,31 @@ export function driveId(url:string):string {
 }
 export async function readSource(source:Source):Promise<string> {
   const id=driveId(source.url_drive);
-  const r=await connectors.proxy("google-drive",`/drive/v3/files/${id}/export?mimeType=text%2Fplain`,{method:"GET",signal:AbortSignal.timeout(20_000)});
+  return readDriveText(id,async path=>connectors.proxy("google-drive",path,{method:"GET",signal:AbortSignal.timeout(20_000)}));
+}
+/** Only approved Drive hosts and Docs/text-PDF types, bounded bytes; no arbitrary URL fetch. */
+export async function readDriveText(id:string,request:(path:string)=>Promise<Response>):Promise<string>{
+  if(!/^[A-Za-z0-9_-]{10,}$/.test(id))throw new Error("INVALID_DRIVE_SOURCE");
+  const meta=await request(`/drive/v3/files/${id}?fields=mimeType,size`);
+  if(!meta.ok)throw new Error("DRIVE_SOURCE_UNAVAILABLE");
+  const info=await meta.json();
+  if(!["application/pdf","application/vnd.google-apps.document"].includes(info.mimeType))throw new Error("DRIVE_SOURCE_TYPE_UNSUPPORTED");
+  if(Number(info.size)>10_000_000)throw new Error("SOURCE_TOO_LARGE");
+  const pdf=info.mimeType==="application/pdf";
+  const r=await request(pdf?`/drive/v3/files/${id}?alt=media`:`/drive/v3/files/${id}/export?mimeType=text%2Fplain`);
   if(!r.ok)throw new Error("DRIVE_SOURCE_UNAVAILABLE");
-  const text=await r.text();
+  if(Number(r.headers.get("content-length"))>10_000_000)throw new Error("SOURCE_TOO_LARGE");
+  const reader=r.body?.getReader();if(!reader)throw new Error("SOURCE_CONTENT_UNAVAILABLE");
+  const chunks:Uint8Array[]=[];let size=0;
+  try{while(true){const {value,done}=await reader.read();if(done)break;size+=value.length;
+    if(size>10_000_000)throw new Error("SOURCE_TOO_LARGE");chunks.push(value);}}
+  finally{await reader.cancel();}
+  const bytes=Buffer.concat(chunks);
+  let text:string;
+  if(pdf){
+    const {extractText}=await import("unpdf");
+    text=(await extractText(new Uint8Array(bytes),{mergePages:true})).text;
+  }else text=bytes.toString("utf8");
   if(!text.trim()||text.length>500000)throw new Error("SOURCE_CONTENT_UNAVAILABLE");
   return text;
 }

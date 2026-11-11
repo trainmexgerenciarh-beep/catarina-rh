@@ -1,4 +1,5 @@
 import { verifyLogin, signSession, sameOrigin, adminConfigured } from "../../../../lib/server/admin-auth";
+import {loginWithAccess,signAccessSession} from "../../../../lib/server/admin-access-auth";
 import type {RequestHandler} from "@sveltejs/kit";
 import {readJsonObject} from "../../../../lib/server/request-json";
 const attempts=new Map<string,{n:number;until:number}>();
@@ -13,11 +14,12 @@ export const POST:RequestHandler=async({request,cookies})=>{
   if(attempts.size>=1000&&!attempts.has(key))return Response.json({error:"Intenta más tarde"},{status:429});
   const attempt=attempts.get(key)??{n:0,until:now+900000};attempts.set(key,attempt);
   if(++attempt.n>5)return Response.json({error:"Intenta más tarde"},{status:429});
-  const admin=verifyLogin(email,String(data.password??""));
+  let admin;
+  try{admin=await loginWithAccess(email,String(data.password??""));}catch{return Response.json({error:"Acceso no disponible"},{status:503});}
   if(!admin)return Response.json({error:"Acceso no autorizado"},{status:401});
   attempts.delete(key);
   let token:string;
-  try{token=signSession(admin);}catch{return Response.json({error:"Inicio de sesión no disponible"},{status:503});}
+  try{token=await signAccessSession(admin);}catch{return Response.json({error:"Inicio de sesión no disponible"},{status:503});}
   cookies.set("rh_session",token,{path:"/",httpOnly:true,secure:true,sameSite:"strict",maxAge:28800});
   return Response.json({ok:true});
 };

@@ -57,7 +57,7 @@ if(process.argv.includes("--child")){
   let initialSequences;
   try{
     tables=(await observer.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).rows.map(r=>r.tablename);
-    assert.equal(tables.length,14);assert(tables.includes("contextos_conversacion")&&tables.includes("eventos_entrantes"));
+    assert.equal(tables.length,16);assert(tables.includes("contextos_conversacion")&&tables.includes("eventos_entrantes")&&tables.includes("usuarios_rh")&&tables.includes("auditoria_accesos"));
     const fks=(await observer.query(`SELECT conrelid::regclass::text AS source,confrelid::regclass::text AS target,
       convalidated FROM pg_constraint WHERE connamespace='public'::regnamespace AND contype='f'`)).rows;
     assert(fks.every(f=>f.convalidated&&tables.includes(f.source)&&tables.includes(f.target)));
@@ -341,7 +341,7 @@ if(process.argv.includes("--child")){
         const after=await snapshot();assert.deepEqual(after,baseline);
         const remainingLocks=(await observer.query("SELECT count(*)::int n FROM pg_locks WHERE locktype='advisory' AND classid=0 AND objid=2026111002 AND objsubid=1 AND granted")).rows[0].n;
         assert.equal(remainingLocks,0);
-        console.log(JSON.stringify({phase:"cleanup",removed,all14FingerprintsEqual:true,remainingExportLocks:remainingLocks,
+        console.log(JSON.stringify({phase:"cleanup",removed,all16FingerprintsEqual:true,remainingExportLocks:remainingLocks,
           fingerprint:createHash("sha256").update(JSON.stringify(after)).digest("hex"),
           counts:Object.fromEntries(tables.map(t=>[t,after[t].count])),
           sequencesBefore:initialSequences,sequencesAfter:(await observer.query("SELECT sequencename,last_value::text FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename")).rows}));

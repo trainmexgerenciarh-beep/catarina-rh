@@ -9,6 +9,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:integrations": "node scripts/check-integrations.mjs",
     "admin:bootstrap": "node scripts/admin-bootstrap.mjs",
+    "admin:activate": "node scripts/activate-admin-access.mjs",
+    "test:admin": "node scripts/test-admin-access.mjs",
     "cron:prepare": "node scripts/run-cron.mjs",
     "cron:test": "node scripts/run-cron.mjs --test-dispatch",
     "test:delivery:neon": "node scripts/test-survey-delivery-neon.mjs",
@@ -45,6 +47,7 @@
     "svelte": "^5.57.3",
     "svelte-check": "^4.7.8",
     "typescript": "^6.0.3",
+    "unpdf": "^2.1.0",
     "vite": "^8.3.6"
   }
 }

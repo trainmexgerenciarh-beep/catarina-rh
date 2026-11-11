@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import AdminUsers from './AdminUsers.svelte';
 
   export let mode: 'demo' | 'admin';
 
@@ -13,6 +14,7 @@
     { id: 'colaboradores', label: 'Directorio', group: 'Administración', mark: '04' },
     { id: 'servicios', label: 'Servicios', group: 'Administración', mark: '05' },
     { id: 'fuentes', label: 'Fuentes', group: 'Administración', mark: '06' },
+    { id: 'usuarios', label: 'Usuarios y accesos', group: 'Administración', mark: '12' },
     { id: 'consultas', label: 'Consultas', group: 'Seguimiento', mark: '07' },
     { id: 'voz', label: 'Tu Voz', group: 'Seguimiento', mark: '08' },
     { id: 'encuestas', label: 'Encuestas', group: 'Seguimiento', mark: '09' },
@@ -50,6 +52,7 @@
       { key: 'version', label: 'Versión' },
       { key: 'vigente_desde', label: 'Vigente desde', type: 'date' },
       { key: 'activo', label: 'Aprobada por Gerente para consultas', type: 'checkbox' }
+      ,{ key: 'fuente_inactiva', label: 'Inactiva (si no está aprobada)', type: 'checkbox' }
     ]
   };
 
@@ -76,6 +79,7 @@
   let configured = true;
   let role = '';
   let email = '';
+  let principal = false;
   let rows: Row[] = [];
   let busy = false;
   let loading = false;
@@ -135,6 +139,7 @@
         authenticated = Boolean(session.authenticated);
         role = session.role || '';
         email = session.email || '';
+        principal = Boolean(session.principal);
       } catch {
         error = 'No fue posible verificar la sesión. Revisa tu conexión e inténtalo de nuevo.';
       }
@@ -157,7 +162,7 @@
     loading = true;
     error = '';
     notice = '';
-    if(name === 'simulacion'){
+    if(name === 'simulacion'||name === 'usuarios'){
       rows = [];
       loading = false;
       return; // Conversation uses its POST endpoint, not an imaginary data table.
@@ -204,6 +209,7 @@
     if (resourceName === 'colaboradores' || resourceName === 'servicios' || resourceName === 'fuentes') {
       if (form.activo === undefined) form.activo = resourceName !== 'fuentes';
     }
+    if(resourceName==='fuentes')form.fuente_inactiva=row.estado_documental==='INACTIVA';
     error = '';
     notice = '';
     if (resourceName === 'fuentes' && !categoryOptionsLoaded) void loadCategoryOptions();
@@ -417,7 +423,7 @@
       bloqueos: ['fecha', 'hora_inicio', 'hora_fin', 'motivo'],
       colaboradores: ['id_colaborador', 'nombre', 'whatsapp', 'centro', 'departamento', 'puesto', 'activo'],
       servicios: ['id_servicio', 'categoria', 'subcategoria', 'activo'],
-      fuentes: ['nombre', 'categoria', 'version', 'vigente_desde', 'activo'],
+      fuentes: ['nombre', 'categoria', 'version', 'vigente_desde', 'estado_documental', 'aprobador'],
       consultas: ['fecha', 'pregunta_resumen', 'resultado', 'id_ticket'],
       voz: ['recibida_en', 'categoria', 'descripcion', 'estado'],
       encuestas: ['id_cita', 'estado_entrega', 'modo_entrega', 'enviada_en', 'recibio_atencion', 'calificacion', 'resolucion', 'comentario'],
@@ -476,7 +482,7 @@
       tickets: 'Contexto de atención, estado y resultado de cada solicitud.',
       colaboradores: 'Directorio mínimo para la atención de colaboradores.',
       servicios: 'Catálogo vigente de categorías y subcategorías.',
-      fuentes: 'Referencias de Drive y vigencia de documentación autorizada.',
+      fuentes: 'Biblioteca institucional, distinta del directorio de empleados. Registra Docs o PDF de texto en Drive, título, categoría, versión y vigencia. BORRADOR no responde consultas; solo el administrador aprueba tras comprobar lectura. INACTIVA deja de utilizarse. El aprobador se registra desde la sesión; leer no significa aprobar.',
       consultas: 'Preguntas recibidas y suficiencia de la respuesta documental.',
       voz: 'Buzón de recepción confidencial; lectura restringida a Gerencia de RH.',
       encuestas: 'Atención recibida, satisfacción y resolución son dimensiones separadas.',
@@ -523,7 +529,7 @@
         {#each ['Inicio', 'Operación', 'Administración', 'Seguimiento', 'Sistema'] as group}
           <div class="nav-group">
             <p>{group}</p>
-            {#each navItems.filter((item) => item.group === group && (item.id !== 'voz' || mode === 'demo' || role === 'gerente')) as item}
+            {#each navItems.filter((item) => item.group === group && (item.id !== 'voz' || mode === 'demo' || role === 'gerente') && (item.id !== 'usuarios' || mode === 'admin' && principal)) as item}
               <a class:active={resource === item.id} href="{mode === 'demo' ? '/demo' : '/panel'}?resource={item.id}" on:click|preventDefault={() => goTo(item.id)}>
                 <span class="nav-mark">{item.mark}</span><span>{item.label}</span>
                 {#if item.id === 'voz'}<span class="restricted">RH</span>{/if}
@@ -547,7 +553,10 @@
         </div>
       </header>
       <section class="content">
-        {#if resource === 'simulacion' && mode === 'demo'}
+        {#if resource === 'usuarios'}
+          {#if mode === 'admin' && principal}<AdminUsers authorized={true} />
+          {:else}<p class="alert error">Acceso exclusivo del administrador principal.</p>{/if}
+        {:else if resource === 'simulacion' && mode === 'demo'}
           <div class="page-heading">
             <div><span class="eyebrow">PRUEBA CONVERSACIONAL · SESIÓN FICTICIA</span><h1>Una conversación, sin tocar datos reales.</h1><p>Escribe como lo haría una persona colaboradora. Esta sesión es independiente del panel.</p></div>
             <button class="button secondary" type="button" on:click={resetConversation} disabled={conversationBusy}>Reiniciar sesión</button>

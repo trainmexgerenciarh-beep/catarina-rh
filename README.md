@@ -3,6 +3,25 @@
 Aplicación existente de recepción y administración de Recursos Humanos de Trainmex.
 SvelteKit + TypeScript, Neon PostgreSQL y SDK oficial de Gemini.
 
+## Entrega vigente — Usuarios y accesos
+
+**[Informe y pasos privados de activación](docs/ADMIN_USUARIOS_Y_CONFIGURACION.md)**.
+Submenú `/panel?resource=usuarios`, exclusivo del administrador principal:
+alta/edición de gestores, activar/desactivar/revocar, auditoría y permisos en
+servidor. Login real bloqueado hasta configuración privada de las cuentas
+confirmadas; no hay contraseña predeterminada ni acceso por conocer el correo.
+
+Migración aditiva autorizada: `usuarios_rh` y `auditoria_accesos`, total **16 tablas**;
+las 14 previas, 15 servicios y cinco horarios conservados. Sin cuentas reales
+creadas. `npm run test:admin`: 8 grupos SQL ROLLBACK/lectura PASS;
+HTTPS auth 7 grupos y UI 8 grupos PASS, check/build y regresiones PASS.
+Fuentes Docs/PDF: borrador, aprobación exclusiva y retiro, con aprobador auditado.
+Los cinco Secrets básicos de Meta están presentes; vigencia del token y tipo
+de número no verificados. **WhatsApp OFF, sin publicación ni cron externo**.
+
+El corte de cierre siguiente es histórico: su total de 14 tablas precede esta
+migración de administración, y los correos autorizados ya fueron confirmados.
+
 ## Cierre técnico de activación — 11 de noviembre de 2026
 
 **Preparación verificada; WhatsApp real OFF, sin publicación ni piloto.**

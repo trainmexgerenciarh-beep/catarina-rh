@@ -1,5 +1,6 @@
 import type {RequestHandler} from "@sveltejs/kit";
-import {readSession,sameOrigin} from "../../../../lib/server/admin-auth";
+import {sameOrigin} from "../../../../lib/server/admin-auth";
+import {readAccessSession as readSession} from "../../../../lib/server/admin-access-auth";
 import {getNeonPool} from "../../../../lib/server/neon-collaborators";
 import {readRH,writeRH} from "../../../../lib/server/rh-service";
 import {exportMonth,inspectExportDestination} from "../../../../lib/server/monthly-export";
@@ -23,14 +24,14 @@ const errorResponse=(e:unknown)=>Response.json({error:e instanceof PersistenceEr
   code:e instanceof PersistenceError?e.code:"OPERATION_UNAVAILABLE"},
   {status:e instanceof PersistenceError&&e.code==="ACCESS_DENIED"?403:400});
 export const GET:RequestHandler=async({cookies,params})=>{
-  const admin=readSession(cookies.get("rh_session"));
+  const admin=await readSession(cookies.get("rh_session"));
   if(!admin)return Response.json({error:"Acceso autenticado requerido"},{status:401});
   if(params.resource==="voz"&&admin.role!=="gerente")return Response.json({error:"ACCESS_DENIED"},{status:403});
   try{return Response.json({rows:await readRH(getNeonPool(),params.resource!,admin.role),mode:"neon",role:admin.role},{headers:{"cache-control":"no-store"}});}
   catch(e){return errorResponse(e);}
 };
 export const POST:RequestHandler=async({cookies,params,request})=>{
-  const admin=readSession(cookies.get("rh_session"));
+  const admin=await readSession(cookies.get("rh_session"));
   if(!admin)return Response.json({error:"Acceso autenticado requerido"},{status:401});
   if(params.resource==="voz")return Response.json({error:"ACCESS_DENIED"},{status:403});
   if(!sameOrigin(request))return Response.json({error:"Origen no autorizado"},{status:403});
@@ -42,7 +43,7 @@ export const POST:RequestHandler=async({cookies,params,request})=>{
     const row=params.resource==="configuracion"&&body.action==="check-export"?await inspectExportDestination():
       params.resource==="configuracion"&&body.action==="export"?
       await exportMonth(getNeonPool(),String((body.data as Record<string,unknown>).month)):
-      await writeRH(getNeonPool(),params.resource!,String(body.action),body.data as Record<string,unknown>,admin.role);
+      await writeRH(getNeonPool(),params.resource!,String(body.action),body.data as Record<string,unknown>,admin.role,admin.email);
     return Response.json({ok:true,row});
   }catch(e){return errorResponse(e);}
 };

@@ -6,6 +6,33 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
+## Administración de usuarios — entrega vigente
+
+**IMPLEMENTADA Y PROBADA / CONFIGURACIÓN PRIVADA PENDIENTE / SALIDA OFF.**
+
+- Submenú Usuarios y accesos solo para el principal; API y SSR restringidos.
+  Gestores sin promoción, administrador único fijo; cambios y revocación
+  invalidan sesiones por revisión consultada en Neon en cada petición.
+- Migración COMMIT autorizada de dos tablas aditivas, cuentas y auditoría mínima:
+  14→16 tablas. Huellas de las 14 anteriores iguales; catálogo 15/horarios 5 intactos.
+  Sin cuentas duraderas creadas ni Secrets cambiados.
+- Bootstrap privado preparado para los dos correos confirmados; no ejecutado
+  porque RH_ADMIN_ACCOUNTS está ausente. Conocer correo no concede identidad.
+- Biblioteca Docs/PDF con BORRADOR/APROBADA/INACTIVA; aprobador auditado,
+  lectura verificada antes de activar; no fuentes ni contenido RH inventados.
+- `test:admin` 8 grupos PASS (SQL real con ROLLBACK, sin residuos),
+  HTTPS auth 7 y UI 8 PASS; Gemini real 11 casos y regresiones/check/build PASS;
+  HMAC HTTPS 200/401/401. Auditoría IDENTITY consumida hasta 10, sin restablecer.
+- Los cinco Secrets Meta inspeccionados PRESENTES. Vigencia y tipo de número
+  NO VERIFICADOS; introspección no ejecutada y no se supone expiración.
+- Pendiente del titular: configuración privada de acceso, directorio piloto,
+  documentos oficiales, hoja de prueba autorizada y verificaciones Meta previas
+  a cualquier permiso de activación. Sin envío, deployment o cron externo.
+
+Evidencia, límites, migración, pruebas y lista exacta:
+[ADMIN_USUARIOS_Y_CONFIGURACION.md](ADMIN_USUARIOS_Y_CONFIGURACION.md).
+Las secciones siguientes conservan los cortes históricos, no sustituyen este.
+
 ## Cierre técnico de activación — ejecución y verificación
 
 **IMPLEMENTADO Y VERIFICADO / WHATSAPP REAL OFF / SIN PILOTO NI PUBLICACIÓN /
