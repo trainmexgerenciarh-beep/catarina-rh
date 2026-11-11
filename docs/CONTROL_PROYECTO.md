@@ -6,6 +6,25 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
+## Iteración 02-C2 — adaptadores y unidad transaccional aislados
+
+**IMPLEMENTADA / SUITES PASS / PENDIENTE DE ACEPTACIÓN.** Sin conexión al webhook
+ni escrituras Neon. No se ejecutó 02-C3; 02-C4 continúa separada.
+
+| Registro | Evidencia actual |
+|---|---|
+| Unidad de trabajo | Una conexión por operación; bloqueo institucional común para agenda/tickets; resultado solo después de COMMIT confirmado. |
+| Recibos | Versión 1 mínima, huella canónica, snapshot original por evento, colisión de clave controlada, recuperación sin borrador. Sin borrado/expiración automática; retención definitiva pendiente. |
+| Agenda preparada | Alta/cancelación/reprogramación atómicas con recibo, consulta, disponibilidad, propiedad/servicio activo y reloj BD posterior a locks. No activa conversación remota. |
+| Tickets | Comparte protocolo; un evento no aplica ticket y cita; CANCELADA no bloquea cierre explícito, sin resolución automática. |
+| Pruebas | persistence 21 grupos; agenda 24; payroll 15; conversation, processing completo con Gemini, webhook, check y build PASS. |
+| Neon | Solo SELECT: 12 tablas, 15 servicios activos, cinco horarios aprobados; tickets/citas/recibos 0 antes y después. Sin DDL, datos sintéticos ni rollback de escritura real. |
+| Límites | Concurrencia y fallos COMMIT exclusivamente simulados. Webhook continúa en memoria; contexto volátil con 120 minutos y sin continuidad multiproceso. |
+| Próximo control | ChatGPT/Trainmex revisan/aceptan; 02-C3 requiere plan y autorización independiente, no iniciar por inferencia. |
+
+Contrato, diagramas, fallo inicial del mock corregido, pruebas y deudas:
+[Iteración 02-C2](ITERACION_02_C2.md). Google Drive y rectores sin modificar.
+
 ## Iteración 02-C1 — migración controlada autorizada
 
 **APLICADA / VERIFICACIÓN DE CATÁLOGOS Y COMMIT PASS / PENDIENTE DE ACEPTACIÓN.**

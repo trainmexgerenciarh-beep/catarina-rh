@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { inAgendaTransaction, PersistenceError, requireEventId } from "./persistence-unit.ts";
 
 export type Identity = {
   status: "active" | "inactive" | "not_found" | "ambiguous";
@@ -34,12 +35,10 @@ export interface TicketRepository {
   closeWithoutAppointment(id: string, collaboratorId: string): Promise<Ticket>;
 }
 
-export class TicketError extends Error {
-  code: string;
+export class TicketError extends PersistenceError {
   constructor(code: string) {
-    super("Ticket operation unavailable");
+    super(code);
     this.name = "TicketError";
-    this.code = code;
   }
 }
 
@@ -109,20 +108,11 @@ function mapTicket(row: Omit<Ticket, "folio">): Ticket {
  */
 export function createNeonTicketRepository(pool: Pick<pg.Pool, "connect">): TicketRepository {
   async function transaction<T>(work: (client: pg.PoolClient) => Promise<T>): Promise<T> {
-    let client: pg.PoolClient | undefined;
     try {
-      client = await pool.connect();
-      await client.query("BEGIN");
-      const result = await work(client);
-      await client.query("COMMIT");
-      return result;
+      return await inAgendaTransaction(pool, work);
     } catch (error) {
-      if (client) await client.query("ROLLBACK").catch(() => {});
       if (error instanceof TicketError) throw error;
-      // Do not expose pg errors: they may contain parameters and personal data.
-      throw new TicketError("DATABASE_UNAVAILABLE");
-    } finally {
-      client?.release();
+      throw new TicketError(error instanceof PersistenceError ? error.code : "DATABASE_UNAVAILABLE");
     }
   }
 
@@ -132,6 +122,16 @@ export function createNeonTicketRepository(pool: Pick<pg.Pool, "connect">): Tick
     );
     const row = result.rows[0];
     if (row && row.collaboratorId !== collaboratorId) throw new TicketError("IDENTITY_CONFLICT");
+    if (row) {
+      const access = await client.query(
+        `SELECT c.id_colaborador FROM public.colaboradores c
+         JOIN public.servicios s ON s.id_servicio=$2
+         WHERE c.id_colaborador=$1 AND c.activo IS TRUE AND s.activo IS TRUE
+           AND s.categoria='Nómina y prestaciones' FOR SHARE OF c,s`,
+        [collaboratorId, row.serviceId]
+      );
+      if (access.rows.length !== 1) throw new TicketError("INACTIVE_IDENTITY_OR_SERVICE");
+    }
     return row ? mapTicket(row) : null;
   }
 
@@ -142,6 +142,12 @@ export function createNeonTicketRepository(pool: Pick<pg.Pool, "connect">): Tick
     },
     createConfirmed(input) {
       return transaction(async (client) => {
+        requireEventId(input.confirmationId);
+        const agendaReceipt = await client.query(
+          "SELECT id_evento_meta FROM public.operaciones_citas WHERE id_evento_meta = $1",
+          [input.confirmationId]
+        );
+        if (agendaReceipt.rows.length) throw new TicketError("EVENT_CONFLICT");
         const identity = await client.query(
           "SELECT id_colaborador FROM public.colaboradores WHERE id_colaborador = $1 AND activo IS TRUE FOR SHARE",
           [input.collaboratorId]
@@ -169,18 +175,35 @@ export function createNeonTicketRepository(pool: Pick<pg.Pool, "connect">): Tick
     },
     closeWithoutAppointment(id, collaboratorId) {
       return transaction(async (client) => {
+        const access = await client.query(
+          `SELECT /*c2:close-access*/ t.id_ticket FROM public.tickets t
+           JOIN public.colaboradores c ON c.id_colaborador=t.id_colaborador
+           JOIN public.servicios s ON s.id_servicio=t.id_servicio
+           WHERE t.id_ticket=$1 AND t.id_colaborador=$2 AND c.activo IS TRUE
+             AND s.activo IS TRUE AND s.categoria='Nómina y prestaciones'
+           FOR UPDATE OF t FOR SHARE OF c,s`, [id, collaboratorId]
+        );
+        if (access.rows.length !== 1) throw new TicketError("INACTIVE_IDENTITY_OR_SERVICE");
         const updated = await client.query<Omit<Ticket, "folio">>(
           `UPDATE public.tickets SET estado = 'cerrado sin cita',
              cerrado_en = NOW(), resultado = $3
            WHERE id_ticket = $1 AND id_colaborador = $2 AND estado = 'pendiente de cita'
              AND resuelto_en IS NULL
              AND EXISTS (SELECT 1 FROM public.colaboradores WHERE id_colaborador = $2 AND activo IS TRUE)
-             AND NOT EXISTS (SELECT 1 FROM public.citas WHERE id_ticket = $1)
+             AND EXISTS (SELECT 1 FROM public.servicios s
+               WHERE s.id_servicio = tickets.id_servicio AND s.activo IS TRUE
+                 AND s.categoria = 'Nómina y prestaciones')
+             AND NOT EXISTS (SELECT 1 FROM public.citas WHERE id_ticket = $1 AND estado <> 'CANCELADA')
            RETURNING ${PROJECTION}`, [id, collaboratorId, CLOSED_OUTCOME]
         );
         if (updated.rows[0]) return mapTicket(updated.rows[0]);
         const current = await client.query<Omit<Ticket, "folio">>(
-          `SELECT ${PROJECTION} FROM public.tickets WHERE id_ticket = $1 AND id_colaborador = $2`,
+          `SELECT ${PROJECTION} FROM public.tickets
+           WHERE id_ticket = $1 AND id_colaborador = $2
+             AND EXISTS (SELECT 1 FROM public.colaboradores WHERE id_colaborador = $2 AND activo IS TRUE)
+             AND EXISTS (SELECT 1 FROM public.servicios s
+               WHERE s.id_servicio = tickets.id_servicio AND s.activo IS TRUE
+                 AND s.categoria = 'Nómina y prestaciones')`,
           [id, collaboratorId]
         );
         if (current.rows[0]?.status === "cerrado sin cita" && !current.rows[0].resolvedAt) {

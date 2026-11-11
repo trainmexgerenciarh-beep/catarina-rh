@@ -1,6 +1,26 @@
 # Catarina RH — notas de desarrollo
 
-## Estado actual — 02-C1 aplicada, 02-C2 no autorizada
+## Estado actual — 02-C2 aislada, 02-C3/02-C4 pendientes
+
+- Adaptadores preparados en `neon-agenda.ts` y `payroll-tickets.ts`, unidad
+  `inAgendaTransaction`: una conexión, mismo advisory lock institucional para
+  agenda y tickets, recibo/cita en una transacción. Nunca Gemini bajo el lock.
+- El webhook sigue seleccionando memoria; no conectar estos adaptadores sin
+  autorización de 02-C4. `SIMULATION_ONLY` no es permiso de escribir con pool real.
+- Recibos versión 1 originales e inmutables por evento, huella determinista,
+  sin transcripciones/propietario en el resultado. Sin caducidad/borrado
+  automático en esta etapa; política definitiva de retención pendiente.
+- Colisiones entre confirmaciones de tickets y recibos de citas se controlan
+  en ambos sentidos bajo el mismo lock, sin nueva migración.
+- No reejecutar escrituras por COMMIT incierto: recuperar por evento.
+  CANCELADA permite cierre explícito sin cita; cancelación no cierra ni resuelve.
+- `test:persistence`: 21 grupos SQL simulados PASS; agenda/payroll/conversation/
+  processing/webhook/check/build PASS. En Neon solo SELECT, sin fixtures.
+- Evidencia y deudas: [Iteración 02-C2](docs/ITERACION_02_C2.md).
+  Rectores/Drive intactos. No declarar operación por WhatsApp ni COMMIT real
+  de adaptadores probado. Las siguientes secciones conservan antecedentes.
+
+## Antecedente — 02-C1 aplicada
 
 - El 11 de noviembre de 2026 se aplicó exclusivamente el DDL principal
   corregido de Drive autorizado por Trainmex: Neon pasa de 11 a 12 tablas

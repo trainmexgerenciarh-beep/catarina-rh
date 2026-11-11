@@ -14,7 +14,8 @@
     "test:awards": "node scripts/test-whatsapp-processing.mjs --awards-only",
     "test:payroll": "node scripts/test-payroll.mjs",
     "test:payroll:neon": "node scripts/test-payroll-neon.mjs",
-    "test:agenda": "node scripts/test-agenda.mjs"
+    "test:agenda": "node scripts/test-agenda.mjs",
+    "test:persistence": "node scripts/test-agenda-persistence.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

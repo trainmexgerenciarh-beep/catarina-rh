@@ -9,6 +9,21 @@ Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
 
 El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución autorizada de esquema de 02-A y 02-C1 está documentada por separado.
 
+## Iteración 02-C2 — adaptadores aislados, no conectados al webhook
+
+- [Contrato de recibos, interfaces, diagramas, pruebas y límites](docs/ITERACION_02_C2.md).
+- Unidad transaccional común: una conexión y un bloqueo institucional para
+  agenda/tickets. Agenda SQL con recibo aplicado en la misma transacción,
+  recuperación por evento, huella canónica y conflicto entre ticket y cita.
+- Mantiene estados, titularidad activa, horarios ISO, 20 minutos y margen
+  inclusivo de 120 minutos con reloj PostgreSQL tras bloqueos.
+- Recibos sin caducidad automática durante esta etapa; retención definitiva
+  pendiente antes de producción. No contienen transcripciones ni datos personales.
+- `npm run test:persistence`: 21 grupos con SQL ficticio; las siete regresiones
+  solicitadas también PASS. **No hubo escrituras Neon ni COMMIT de fixtures.**
+- Modo `SIMULATION_ONLY`; webhook permanece con repositorios en memoria.
+  **02-C3 real y 02-C4 no ejecutadas**, no hay reservas operativas por WhatsApp.
+
 ## Iteración 02-C1 — migración controlada aplicada
 
 - [SQL exacto, objetos, horarios, COMMIT y límites](docs/ITERACION_02_C1.md).

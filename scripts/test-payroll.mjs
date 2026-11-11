@@ -324,7 +324,7 @@ await test("Adaptador SQL simulado: transacción, parámetros, conflicto único,
   const closeRepo = createNeonTicketRepository({ connect: async () => ({
     query: async (sql, params) => {
       closeCalls.push({ sql, params });
-      return { rows: sql.startsWith("UPDATE") ? [closedRow] : [] };
+      return { rows: sql.startsWith("UPDATE") ? [closedRow] : sql.includes("c2:close-access") ? [{}] : [] };
     }, release() {}
   }) });
   assert.equal((await closeRepo.closeWithoutAppointment(row.id, row.collaboratorId)).resolvedAt, null);
