@@ -1,5 +1,25 @@
 # Catarina RH — notas de desarrollo
 
+## Estado actual — 02-C1 aplicada, 02-C2 no autorizada
+
+- El 11 de noviembre de 2026 se aplicó exclusivamente el DDL principal
+  corregido de Drive autorizado por Trainmex: Neon pasa de 11 a 12 tablas
+  con `operaciones_citas` vacía, cinco NOT NULL de citas, CHECK de estados,
+  duración global finita de 20 minutos y modalidades, UNIQUE parcial y
+  exclusión GiST para PROGRAMADA. No volver a ejecutar automáticamente.
+- Cinco horarios ISO 1–5, 14:00–17:30, 20 minutos, activos, IDs 1–5.
+  Dos transacciones con COMMIT confirmado y verificación desde conexión nueva.
+  No se modificó contenido de tickets/colaboradores/servicios.
+- No se autorizaron CHECK opcionales de horarios/bloqueos. Contrato/retención
+  de recibos pendientes de 02-C2; no producir ni borrar recibos por iniciativa.
+- Webhook y código intactos, repositorios aún simulados. No se demostraron
+  reservas concurrentes ni COMMIT durable de los adaptadores. Contexto en
+  memoria aceptado temporalmente; no prometer continuidad entre procesos.
+- Evidencia, SQL exacto y reversión no ejecutada:
+  [Migración controlada 02-C1](docs/ITERACION_02_C1.md).
+- Las restricciones de iteraciones anteriores son historial de su alcance;
+  esta autorización no habilita nuevas migraciones ni 02-C2.
+
 ## Estado actual — Iteración 02-B simulada
 
 - Agenda única en memoria: `createSimulatedAgenda` y composición `createAgendaReception`.
@@ -21,7 +41,7 @@
 
 - Recepción de nómina y tickets con repositorio de simulación; no habilitar escrituras Neon desde el webhook por iniciativa propia. El adaptador pasó una prueba autorizada en Neon dentro de ROLLBACK; COMMIT durable, reinicio y concurrencia entre conexiones siguen sin verificar.
 - Contexto con caducidad exacta de 120 minutos sin actividad aceptada, aplicada por el motor compuesto. Reinicios pierden memoria; no eliminan ni modifican tickets persistidos.
-- Único cambio de esquema autorizado y aplicado: `public.tickets.id_mensaje_confirmacion TEXT UNIQUE`, opcional. No autoriza otras columnas, tablas, índices adicionales ni datos de prueba. No ejecutar de nuevo automáticamente.
+- Cambio de esquema autorizado en 02-A: `public.tickets.id_mensaje_confirmacion TEXT UNIQUE`, opcional. Su permiso no autorizaba otras modificaciones. La autorización posterior de 02-C1 y su ejecución se documentan arriba. No ejecutar de nuevo automáticamente.
 - `npm run test:payroll`: simulación de confirmación, folio estable, reintentos/reinicio de dos procesos, negativa expresa y caducidad. No hace llamadas externas.
 - Evidencia y límites: [Iteración 02-A](docs/ITERACION_02_A.md); [registro técnico de gestión](docs/CONTROL_PROYECTO.md).
 - Prueba integrada y limpieza: [ensayo controlado](docs/PRUEBA_INTEGRACION_02_A.md). `test:payroll:neon` inspecciona sin escribir por defecto; `--rollback-authorized` ejecuta fixtures aislados solo con autorización expresa. No usar personas/servicios operativos como fixtures ni restablecer secuencias. El ensayo no dejó filas persistidas.

@@ -1,10 +1,30 @@
 # Catarina RH — registro técnico para Gestión del Proyecto
 
-Fecha de corte: 10 de noviembre de 2026.
+Fecha de corte: 11 de noviembre de 2026.
 Fuente funcional: Maestro v1.2, Plano base v1.1/adenda 1.2 y Gestión del Proyecto
 del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
+
+## Iteración 02-C1 — migración controlada autorizada
+
+**APLICADA / VERIFICACIÓN DE CATÁLOGOS Y COMMIT PASS / PENDIENTE DE ACEPTACIÓN.**
+Solo DDL principal corregido y cinco horarios autorizados. No se inició 02-C2.
+Las secciones anteriores de 02-A/02-B se conservan debajo como antecedentes.
+
+| Registro | Evidencia actual |
+|---|---|
+| Preinspección | 11 tablas, cero citas/horarios; ninguna tabla técnica equivalente; permisos, tipos, índices y GiST compatibles; ISO confirmado para carga 1–5. |
+| DDL exacto | 11 sentencias del bloque oficial, una transacción COMMIT confirmada; 12 tablas, operaciones_citas vacía; cinco NOT NULL, tres CHECK, UNIQUE parcial y EXCLUDE GiST en citas. |
+| Horarios | Segunda transacción; tabla vacía comprobada bajo SHARE ROW EXCLUSIVE; cinco filas ISO 1–5, 14:00–17:30, 20 minutos, activas, IDs 1–5; COMMIT confirmado. |
+| Integridad | Constraints validados e índices valid/ready. Huellas del contenido de las otras diez tablas originales iguales; esquemas distintos de citas intactos. Sin extensiones ni triggers de usuario nuevos. |
+| Persistencia comprobada | Conexión nueva vio estructura y cinco horarios confirmados. No equivale a pruebas COMMIT de tickets, citas o recibos, ni concurrencia de adaptadores. |
+| Exclusiones | Sin CHECK opcionales, fixtures, pruebas de escritura o cambios al código/webhook. No se ejecutaron suites npm ni se reutilizaron PASS históricos. Sin salientes WhatsApp ni despliegue. |
+| Próximo control | ChatGPT/Trainmex aceptan 02-C1 y definen autorización separada de 02-C2; contrato/retención de recibos siguen pendientes. |
+
+Detalle de sentencias, tiempos, objetos, conteos y reversión no ejecutada:
+[Migración 02-C1](ITERACION_02_C1.md). Se preservaron rectores e histórico SQL.
+No se editó Google Drive ni se declaró recepción operativa.
 
 ## Iteración 02-B — agenda institucional en simulación
 

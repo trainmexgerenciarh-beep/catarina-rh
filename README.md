@@ -7,7 +7,20 @@ Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
 - [Documento Maestro de Control — versión interna 1.2](CATARINA_RH_DOCUMENTO_MAESTRO_CONTROL_v1.1.md)
 - [Plano Funcional y Modelo de Datos — base 1.1 y adenda funcional 1.2](CATARINA_RH_PLANO_FUNCIONAL_Y_MODELO_DATOS_v1.0.md)
 
-El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución puntual de esquema autorizada para 02-A está documentada por separado.
+El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución autorizada de esquema de 02-A y 02-C1 está documentada por separado.
+
+## Iteración 02-C1 — migración controlada aplicada
+
+- [SQL exacto, objetos, horarios, COMMIT y límites](docs/ITERACION_02_C1.md).
+- Neon tiene ahora **12 tablas**: se añadió únicamente `operaciones_citas`,
+  vacía, y las restricciones autorizadas de citas (20 minutos finitos,
+  cuatro estados, modalidades, UNIQUE parcial y exclusión GiST).
+- Cargados cinco horarios ISO lunes-viernes 14:00–17:30, duración 20,
+  activos; ambos COMMIT confirmados y verificados desde conexión nueva.
+- Sin cambios a tickets, colaboradores ni los 15 servicios. No se ejecutaron
+  fixtures, reservas, pruebas de concurrencia ni validaciones opcionales.
+- **02-C2 no iniciada**. Webhook, motores y adaptadores sin cambios: continúan
+  los límites de simulación y los pendientes de integración durable.
 
 ## Iteración 02-B — agenda institucional en simulación
 
@@ -34,7 +47,7 @@ El Paquete Funcional 01 no está implementado íntegramente. Los archivos conser
 - [Especificación técnica, esquema autorizado y pruebas](docs/ITERACION_02_A.md).
 - [Registro técnico para Gestión del Proyecto](docs/CONTROL_PROYECTO.md).
 - Nómina recibe el concepto entre ocho servicios activos, identifica el viernes de pago, recopila explicación breve, presenta resumen y exige confirmación explícita. Los IDs se validan de nuevo antes de registrar.
-- Solo después de confirmar crea un ticket **simulado** con folio `SIM-NOM-…`. El adaptador PostgreSQL preparado utiliza `id_ticket` como folio `NOM-…` y la columna opcional `id_mensaje_confirmacion TEXT UNIQUE`, única modificación de Neon expresamente autorizada y aplicada.
+- Solo después de confirmar crea un ticket **simulado** con folio `SIM-NOM-…`. El adaptador PostgreSQL preparado utiliza `id_ticket` como folio `NOM-…` y la columna opcional `id_mensaje_confirmacion TEXT UNIQUE`, cambio aplicado en 02-A. La evolución posterior autorizada de 02-C1 está registrada arriba.
 - Una negativa expresa a agendar cierra sin cita y sin resolución. Afirmar interés no reserva; silencio, cancelación del menú y caducidad no cierran tickets.
 - La recepción del webhook usa el repositorio **en memoria de simulación**, no el adaptador de escritura Neon. No envía respuestas por WhatsApp. La [prueba autorizada con ROLLBACK](docs/PRUEBA_INTEGRACION_02_A.md) validó SQL sin persistencia; no validó COMMIT durable/concurrencia real ni operación por WhatsApp.
 - El contexto del motor compuesto caduca lógicamente al cumplirse exactamente 120 minutos sin actividad aceptada. Se limpia al siguiente tráfico; no hay temporizador ni contexto compartido entre procesos. Reiniciar pierde borradores y tickets ficticios del webhook, no tickets persistidos.
