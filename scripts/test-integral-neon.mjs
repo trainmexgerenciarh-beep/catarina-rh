@@ -271,7 +271,7 @@ if(process.argv.includes("--child")){
     pass("Encuesta SQL entre procesos: atención Sí, satisfacción 4 y resolución Parcialmente sin alterar ticket/cita");
     const priorTarget=process.env.RH_EXPORT_SPREADSHEET_ID;
     try{
-      process.env.RH_EXPORT_SPREADSHEET_ID="synthetic-sheet-no-external-call";
+      process.env.RH_EXPORT_SPREADSHEET_ID="1lLpgaLr3Y7-9u0p45alq3txRS42M8mQAesu3gibXpvI"; // Transport below is mocked; no Sheets calls.
       const month=(await observer.query("SELECT to_char(clock_timestamp() AT TIME ZONE 'America/Mexico_City','YYYY-MM') AS month")).rows[0].month;
       const sheetTitle=`Tickets_${month.replace("-","_")}`;
       const sheets=createSheetsFixture(sheetTitle),proxy=sheets.proxy,sheetRows=sheets.rows;

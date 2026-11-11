@@ -104,7 +104,7 @@ try{
   await assert.rejects(sendWhatsApp(text,{reviewed:true},async()=>Response.json({}, {status:500})),e=>e.certainty==="UNKNOWN");
   await assert.rejects(sendWhatsApp(text,{reviewed:true},async()=>Response.json({})),e=>e.certainty==="UNKNOWN");
   pass("Transporte Graph sustituido: OFF aun con credenciales, ventana/recibo y errores explícitos");
-  process.env.RH_EXPORT_SPREADSHEET_ID="synthetic-destination";
+  process.env.RH_EXPORT_SPREADSHEET_ID="1lLpgaLr3Y7-9u0p45alq3txRS42M8mQAesu3gibXpvI"; // All HTTP calls below remain mocked.
   const noPool={async connect(){throw new Error("Must not connect");}};
   await assert.rejects(exportMonth(noPool,"not-month"));
   for(const status of [401,403])await assert.rejects(inspectExportDestination(async()=>Response.json({}, {status})),e=>e.code==="SHEETS_PERMISSION_REQUIRED");

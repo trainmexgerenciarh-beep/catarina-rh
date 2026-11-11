@@ -39,7 +39,7 @@ export async function readRH(pool:pg.Pool,resource:string,role:Role) {
     {label:"WhatsApp",value:"BLOQUEADO",detail:"Sin envíos automáticos. Requiere aprobación y lista autorizada."},
     {label:"Neon",value:"Persistente",detail:"16 tablas; agenda institucional compartida y control de accesos"},
     {label:"Google Drive",value:"Verificable por fuente",detail:"Registra URL, versión y vigencia; verifica permisos antes de responder."},
-    {label:"Google Sheets",value:process.env.RH_EXPORT_SPREADSHEET_ID?"Configurado; verificar permisos":"Destino pendiente",detail:"Archivo mensual de tickets ordinarios cerrados, sin Tu Voz ni borrado."},
+    {label:"Google Sheets",value:"Hoja de prueba autorizada",detail:"Destino fijo entregado por Trainmex. Verificar permisos desde Replit; sin Tu Voz ni borrado."},
     {label:"Encuestas",value:"Entrega durable FAKE_ONLY",detail:"Día siguiente, reclamación/reintentos en Neon; sin envío real ni cron externo activado"},
     {label:"Contexto",value:"120 minutos",detail:"Compartido, revisionado y con lease/fencing; sin transcripciones completas"}
   ];

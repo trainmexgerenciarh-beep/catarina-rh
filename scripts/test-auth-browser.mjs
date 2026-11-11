@@ -9,6 +9,7 @@ import{chromium}from"@playwright/test";
 import{createAccount}from"./admin-bootstrap.mjs";
 import{createDemoStore}from"../src/lib/server/demo-store.ts";
 import{OWNER_EMAIL}from"../src/lib/server/admin-users.ts";
+import{previewDirectory,parseDirectoryText}from"../src/lib/server/directory-import.ts";
 if(process.argv.includes("--private-https-child")){
   process.once("message",async config=>{
     try{
@@ -119,6 +120,11 @@ if(process.argv.includes("--private-https-child")){
     assert.equal((await manager.request.get(base+"/api/admin/users")).status(),403);
     assert.equal((await generalist.request.get(base+"/panel?resource=usuarios")).status(),403);
     assert.equal((await anonymous.request.get(base+"/panel?resource=usuarios")).status(),401);
+    assert.equal((await anonymous.request.post(base+"/api/admin/directory-import",{headers:{origin:base},data:{action:"preview",source:"sheet"}})).status(),401);
+    assert.equal((await generalist.request.post(base+"/api/admin/directory-import",{headers:{origin:base},data:{action:"preview",source:"sheet"}})).status(),403);
+    assert.equal((await manager.request.post(base+"/api/admin/directory-import",{headers:{origin:base},data:{action:"preview",source:"sheet"}})).status(),403);
+    assert.equal((await generalist.request.get(base+"/panel?resource=importar")).status(),403);
+    assert.equal((await anonymous.request.get(base+"/panel?resource=importar")).status(),401);
     for(const [resource,action]of [["servicios","save"],["fuentes","save"],["configuracion","export"]])
       assert.equal((await generalist.request.post(base+"/api/rh/"+resource,{headers:{origin:base},data:{action,data:{}}})).status(),403);
     assert.equal((await manager.request.post(base+"/api/admin/logout",{headers:{origin:"https://attacker.invalid"},data:{}})).status(),403);
@@ -206,6 +212,49 @@ if(process.argv.includes("--private-https-child")){
     await op.setViewportSize({width:402,height:874});
     assert(await op.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
     pass("Usuarios UI escritorio/móvil: cinco acciones con API mock; login/SSR y CSRF HTTPS reales");
+    stage="directory-import-ui";
+    assert.equal((await owner.request.post(base+"/api/admin/directory-import",{headers:{origin:"https://attacker.invalid"},data:{action:"confirm"}})).status(),403);
+    let confirmations=0,previewCalls=0,changed=false;
+    const fixtureCsv="número de empleado,nombre completo,departamento,WhatsApp,puesto,estatus\nSYNTH-UI,Persona ficticia UI,Prueba,+9990000000009,Prueba,activo";
+    await owner.route("**/api/admin/directory-import",async route=>{
+      const d=route.request().postDataJSON();
+      if(d.action==="preview"){
+        previewCalls++;
+        if(d.source==="sheet")return route.fulfill({status:403,json:{error:"Permiso de hoja no disponible en esta prueba; usa CSV privado."}});
+        return route.fulfill({json:{preview:previewDirectory(parseDirectoryText(d.text),[]),token:"synthetic-preview-token"}});
+      }
+      confirmations++;
+      if(changed)return route.fulfill({status:400,json:{error:"La vista previa venció. Genera una nueva."}});
+      return route.fulfill({json:{inserted:1,updated:0}});
+    });
+    await op.goto(base+"/panel?resource=importar");
+    await op.getByRole("heading",{name:"Importar directorio",exact:true}).waitFor();
+    await op.getByRole("button",{name:/Generar vista previa/}).click();
+    await op.getByText(/Permiso de hoja no disponible/).waitFor();
+    await op.getByRole("button",{name:/Archivo o texto local/i}).click();
+    await op.locator("#directory-text").fill(fixtureCsv);
+    assert.equal(confirmations,0);
+    await op.getByRole("button",{name:/Generar vista previa/}).click();
+    await op.getByText("Persona ficticia UI",{exact:true}).waitFor();
+    assert(await op.getByText("A DEFINIR (opcional)",{exact:false}).count()>0);
+    const confirm=op.getByRole("button",{name:/Confirmar.*alta/i});
+    assert(await confirm.isDisabled());
+    await op.locator(".confirm-check input").check();
+    assert(await confirm.isEnabled());
+    await op.locator("#directory-text").fill(fixtureCsv+"\n");
+    assert.equal(await op.locator(".confirm-check").count(),0);
+    await op.getByRole("button",{name:/Generar vista previa/}).click();
+    await op.locator(".confirm-check input").check();changed=true;
+    await confirm.click();await op.getByText("La vista previa venció. Genera una nueva.",{exact:true}).waitFor();
+    assert.equal(confirmations,1);assert.equal(await op.locator(".confirm-check").count(),0);
+    await op.getByRole("button",{name:/Generar vista previa/}).click();
+    await op.locator(".confirm-check input").check();changed=false;
+    assert(await op.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
+    await op.setViewportSize({width:1440,height:1000});
+    assert(await op.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
+    await confirm.click();await op.getByRole("heading",{name:"Directorio",exact:true}).waitFor();
+    assert.equal(confirmations,2);assert.equal(previewCalls,4);
+    pass("Importador UI móvil/escritorio: fallback privado, revisión sin alta, consentimiento, invalidación y error sin falso éxito");
     console.log(`AUTH NAVEGADOR: ${groups} grupos PASS. Login/logout/TLS/roles reales; datos RH mock; proceso privado sin Secrets reales, Neon ni Graph.`);
   }catch(e){console.error(`AUTH_TEST_FAILED stage=${stage} kind=${e?.name??"unknown"}`);process.exitCode=1;}
   finally{await browser?.close();await stop();if(dir)await rm(dir,{recursive:true,force:true});}

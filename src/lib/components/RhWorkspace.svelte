@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import AdminUsers from './AdminUsers.svelte';
+  import DirectoryImport from './DirectoryImport.svelte';
 
   export let mode: 'demo' | 'admin';
 
@@ -15,6 +16,7 @@
     { id: 'servicios', label: 'Servicios', group: 'Administración', mark: '05' },
     { id: 'fuentes', label: 'Fuentes', group: 'Administración', mark: '06' },
     { id: 'usuarios', label: 'Usuarios y accesos', group: 'Administración', mark: '12' },
+    { id: 'importar', label: 'Importar directorio', group: 'Administración', mark: '13' },
     { id: 'consultas', label: 'Consultas', group: 'Seguimiento', mark: '07' },
     { id: 'voz', label: 'Tu Voz', group: 'Seguimiento', mark: '08' },
     { id: 'encuestas', label: 'Encuestas', group: 'Seguimiento', mark: '09' },
@@ -162,7 +164,7 @@
     loading = true;
     error = '';
     notice = '';
-    if(name === 'simulacion'||name === 'usuarios'){
+    if(name === 'simulacion'||name === 'usuarios'||name === 'importar'){
       rows = [];
       loading = false;
       return; // Conversation uses its POST endpoint, not an imaginary data table.
@@ -272,7 +274,7 @@
       modal = '';
       await loadResource(resource, true);
       notice = action === 'verify' ? 'Lectura Drive confirmada. Esta prueba no aprueba el documento como fuente institucional.' :
-        action === 'check-export' ? 'Lectura Sheets confirmada. La escritura requiere una prueba autorizada por el titular.' :
+        action === 'check-export' ? `Lectura desde Replit confirmada. Identidad Drive: ${payload.row?.driveIdentity || 'no verificada'}. Permiso de edición Drive: ${payload.row?.driveCanEdit === true ? 'sí' : 'no confirmado'}. La identidad de Sheets es independiente; esta consulta no escribe.` :
         'Operación confirmada por el servidor.';
     } catch (reason) {
       error = reason instanceof Error ? reason.message : 'No se pudo completar la operación.';
@@ -529,7 +531,7 @@
         {#each ['Inicio', 'Operación', 'Administración', 'Seguimiento', 'Sistema'] as group}
           <div class="nav-group">
             <p>{group}</p>
-            {#each navItems.filter((item) => item.group === group && (item.id !== 'voz' || mode === 'demo' || role === 'gerente') && (item.id !== 'usuarios' || mode === 'admin' && principal)) as item}
+            {#each navItems.filter((item) => item.group === group && (item.id !== 'voz' || mode === 'demo' || role === 'gerente') && (!['usuarios','importar'].includes(item.id) || mode === 'admin' && principal)) as item}
               <a class:active={resource === item.id} href="{mode === 'demo' ? '/demo' : '/panel'}?resource={item.id}" on:click|preventDefault={() => goTo(item.id)}>
                 <span class="nav-mark">{item.mark}</span><span>{item.label}</span>
                 {#if item.id === 'voz'}<span class="restricted">RH</span>{/if}
@@ -553,7 +555,9 @@
         </div>
       </header>
       <section class="content">
-        {#if resource === 'usuarios'}
+        {#if resource === 'importar'}
+          <DirectoryImport authorized={mode === 'admin' && principal} onImported={() => { resource = 'colaboradores'; loadResource('colaboradores', true); }} />
+        {:else if resource === 'usuarios'}
           {#if mode === 'admin' && principal}<AdminUsers authorized={true} />
           {:else}<p class="alert error">Acceso exclusivo del administrador principal.</p>{/if}
         {:else if resource === 'simulacion' && mode === 'demo'}
@@ -593,6 +597,7 @@
                 <button class="button primary" type="button" on:click={() => openForm('bloqueos')}><span aria-hidden="true">+</span>Agregar bloqueo</button>
               {/if}
               {#if ['colaboradores','fuentes','bloqueos'].includes(resource) && (resource !== 'fuentes' || mode === 'demo' || role === 'gerente')}<button class="button primary" type="button" on:click={() => openForm(resource)}><span aria-hidden="true">+</span>{resource === 'bloqueos' ? 'Agregar bloqueo' : `Agregar ${resource === 'colaboradores' ? 'colaborador' : 'fuente'}`}</button>{/if}
+              {#if resource === 'colaboradores' && mode === 'admin' && principal}<a class="button secondary" href="/panel?resource=importar">Importar desde hoja o CSV</a>{/if}
               {#if resource === 'configuracion'}<label class="month-picker">Mes<input type="month" bind:value={period} /></label>{/if}
               <button class="icon-button" type="button" on:click={() => loadResource(resource, true)} aria-label="Actualizar datos" title="Actualizar datos">↻</button>
             </div>

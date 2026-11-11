@@ -3,7 +3,31 @@
 Aplicación existente de recepción y administración de Recursos Humanos de Trainmex.
 SvelteKit + TypeScript, Neon PostgreSQL y SDK oficial de Gemini.
 
-## Entrega vigente — Usuarios y accesos
+## Entrega vigente — Directorio y Sheets de prueba
+
+[Informe de implementación y pruebas](docs/IMPORTACION_DIRECTORIO_Y_SHEETS.md).
+El principal dispone de **Administración > Importar directorio**
+(`/panel?resource=importar`): lectura de la hoja entregada, CSV/TSV privado,
+previsualización y confirmación expresa. Nunca sobrescribe colaboradores
+existentes ni desactiva ausentes; muestra altas, diferencias bloqueadas y rechazos.
+Centro es opcional, sin inventar sede.
+
+Lectura real de ambas hojas PASS. La hoja actual ya incluye «Centro de trabajo»;
+dos filas válidas, **ninguna importada**. Canaria de prueba de Sheets:
+una fila ficticia escrita, releída y limpiada exactamente; hoja vacía al terminar.
+Exportador mensual restringido al destino de prueba entregado, sin Tu Voz;
+deduplicación probada con mocks, no se exportaron tickets reales.
+
+`test:directory` 8 grupos PASS (incluye Neon ROLLBACK), `test:admin` 8,
+HTTPS/navegador 8, UI 8; regresiones seleccionadas, check/build PASS.
+16 tablas, 15 servicios, 5 horarios sin DDL; huellas de tablas sin cambios.
+`RH_ADMIN_ACCOUNTS` continúa pendiente: seguir el bootstrap privado de abajo;
+después el administrador revisa y confirma la importación en la UI.
+No se necesitan nuevamente los enlaces. Fuentes oficiales no bloquean esta
+prueba: sin fuente, se conserva el registro de faltante y derivación RH.
+**WhatsApp OFF; sin publicación ni cron externo**.
+
+## Usuarios y accesos — se conserva la entrega anterior
 
 **[Informe y pasos privados de activación](docs/ADMIN_USUARIOS_Y_CONFIGURACION.md)**.
 Submenú `/panel?resource=usuarios`, exclusivo del administrador principal:
@@ -115,9 +139,11 @@ la de navegador siete. Gemini se probó realmente con los 15 servicios.
 temporales y requiere autorización vigente**, no solo conocer el comando.
 Los scripts históricos de integración se conservan para su esquema/hito original.
 
-### Activación externa pendiente
+### Estado histórico de activación externa
 
-No confundir código probado con autorización de producción. Faltan cuentas RH
+Este párrafo conserva el corte anterior; el estado actual de las hojas está en
+[la entrega de directorio y Sheets](docs/IMPORTACION_DIRECTORIO_Y_SHEETS.md).
+No confundir código probado con autorización de producción. En ese corte faltaban cuentas RH
 específicas en `RH_ADMIN_ACCOUNTS`, fuentes institucionales aprobadas/asignadas,
 destino autorizado `RH_EXPORT_SPREADSHEET_ID` y revisión de permisos/plantillas/
 envíos Meta. Drive fue leído desde la aplicación; la exportación Sheets real no

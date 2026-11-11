@@ -4,3 +4,4 @@
 - [Neon pooled connections](neon-pooler.md) — session advisory locks and backend TLS observations do not describe a stable application connection through transaction pooling.
 - [Survey delivery safety](survey-delivery-safety.md) — lease expiry cannot prove no external send; fictitious acknowledgments must never become real delivery.
 - [Administración RH](administracion-rh.md) — Trainmex exige un administrador principal único; los gestores no pueden promoverse ni transferirlo.
+- [Importación de directorio](directory-import-safety.md) — confirmar altas en UI, no sobrescribir registros ni desactivar ausentes; centro no se inventa.

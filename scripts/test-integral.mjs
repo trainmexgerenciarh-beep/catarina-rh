@@ -73,7 +73,7 @@ const count=sql.length;tick();await new Promise(r=>setImmediate(r));assert.equal
 pass("Mantenimiento con temporizador inyectado, encuestas preparadas y sin purgar recibos");
 const oldTarget=process.env.RH_EXPORT_SPREADSHEET_ID;
 try{
-  process.env.RH_EXPORT_SPREADSHEET_ID="synthetic-spreadsheet";
+  process.env.RH_EXPORT_SPREADSHEET_ID="1lLpgaLr3Y7-9u0p45alq3txRS42M8mQAesu3gibXpvI"; // Mock transport only.
   const archiveCalls=[],exportSql=[];
   const sheets=createSheetsFixture("Tickets_2026_11",{lostAckOnce:true}),proxy=sheets.proxy,exported=sheets.rows;
   const exportPool={async connect(){return {release(){},async query(q,params){

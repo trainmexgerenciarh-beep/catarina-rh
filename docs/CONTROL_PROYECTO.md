@@ -6,7 +6,37 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
-## Administración de usuarios — entrega vigente
+## Importador y Sheets de prueba — entrega vigente
+
+**IMPLEMENTADO Y PROBADO / CANARIA REAL LIMPIA / IMPORTACIÓN PERSONAL PENDIENTE.**
+
+- Importador solo principal, API/SSR/CSRF restringidos, previsualización privada
+  desde la hoja entregada o CSV/TSV. Token limitado y ligado al directorio actual;
+  confirmación separada, INSERT solo de altas. Nunca sobrescribir preexistentes
+  ni desactivar ausentes. Centro opcional NULL si falta.
+- Lectura desde Replit de las dos hojas PASS; directorio actual con siete
+  encabezados (incluye Centro de trabajo), dos filas válidas, **cero importadas**.
+  No se conservan sus datos personales en documentación ni logs.
+- Una canaria sintética real en destino autorizado: una fila/tres celdas,
+  ida/vuelta y limpieza exacta PASS, hoja vacía antes/después. Sin tickets reales
+  exportados. Correo Drive verificado como titular; el correo de la conexión
+  Sheets independiente no es expuesto por el SDK. Su permiso de escritura quedó
+  probado con la propia canaria, sin inventar cuenta de servicio.
+- Ningún cambio de esquema: 16 tablas / 15 servicios / 5 horarios.
+  Pruebas SQL solo ROLLBACK; conteos/huellas de las 16 tablas iguales.
+  Secuencia auditoría 10→18, sin restablecer; ningún fixture duradero.
+- PASS: importador 8, administración 8, HTTPS/auth/UI importador 8, panel demo 8,
+  preactivación 13, integral 9, persistencia 21, agenda 24, nómina 15,
+  conversación, webhook E2E 6, HMAC HTTPS 200/401/401, check 0/0 y build.
+  Gemini real y suites históricas COMMIT no repetidas en esta entrega.
+- RH_ADMIN_ACCOUNTS ausente; no activar por correo conocido. Falta configurar
+  acceso privado y confirmación UI de las dos altas por el principal.
+  No faltan enlaces ni una nueva invitación a servicio supuesto. Fuentes oficiales
+  no bloquean pruebas; sin fuente se conserva faltante y atención RH.
+- Sin cambios de Secrets, Meta, hosting, cron, privacidad GitHub o Google Docs.
+  Sin envíos ni publicación. Informe: [Directorio y Sheets](IMPORTACION_DIRECTORIO_Y_SHEETS.md).
+
+## Administración de usuarios — antecedente conservado
 
 **IMPLEMENTADA Y PROBADA / CONFIGURACIÓN PRIVADA PENDIENTE / SALIDA OFF.**
 

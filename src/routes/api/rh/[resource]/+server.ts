@@ -12,6 +12,7 @@ const messages:Record<string,string>={
   PHONE_ALREADY_REGISTERED:"Ese WhatsApp ya pertenece a otro registro. No se guardó un duplicado.",
   DRIVE_READ_NOT_CONFIRMED:"No se pudo confirmar la lectura de Drive. Revisa permisos y tipo de archivo.",
   SHEETS_DESTINATION_REQUIRED:"El titular debe configurar primero el destino autorizado de Google Sheets.",
+  SHEETS_DESTINATION_CONFLICT:"La configuración privada apunta a otra hoja. No se exportó; el único destino permitido es la hoja de prueba entregada por Trainmex.",
   SHEETS_PERMISSION_REQUIRED:"La identidad conectada no tiene el permiso requerido para ese archivo.",
   SHEETS_TRACE_CONFLICT:"La hoja contiene identificadores duplicados o datos incompatibles. No se archivó el lote.",
   SHEETS_VERIFICATION_REQUIRED:"No se confirmó la escritura completa en Sheets. Reintenta después de revisar el destino.",
