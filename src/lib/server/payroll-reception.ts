@@ -2,6 +2,7 @@ import { createConversationManager } from "./whatsapp-conversation.js";
 import type { ActiveService } from "./neon-collaborators.ts";
 import type { Identity, Ticket, TicketRepository } from "./payroll-tickets.ts";
 import { TicketError } from "./payroll-tickets.ts";
+import { requireEventId } from "./persistence-unit.ts";
 import { displayFriday, normalizePayrollInput, parseFriday } from "./payroll-dates.ts";
 
 export const INACTIVITY_MS = 120 * 60 * 1000;
@@ -47,7 +48,7 @@ function serviceMenu(services: ActiveService[]): string {
 }
 
 function validMessageId(value: string | undefined): value is string {
-  return typeof value === "string" && /^[A-Za-z0-9_.:+/=-]{1,512}$/.test(value);
+  try { requireEventId(value!); return true; } catch { return false; }
 }
 
 /** Composes the approved menu engine; no scheduling or outbound transport. */
@@ -312,5 +313,9 @@ export function createPayrollReception(
     queues.set(phone, marker);
     return task.finally(() => { if (queues.get(phone) === marker) queues.delete(phone); });
   }
-  return { handleMessage, pruneExpired };
+  function reset(senderPhone: string) {
+    const phone=String(senderPhone??"").replace(/\D/g,"");
+    sessions.delete(phone);base.sessionStore.delete(phone);
+  }
+  return { handleMessage, pruneExpired, reset };
 }

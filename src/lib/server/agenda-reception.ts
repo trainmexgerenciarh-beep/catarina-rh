@@ -1,59 +1,64 @@
 import { createPayrollReception, INACTIVITY_MS } from "./payroll-reception.ts";
 import { normalizePayrollInput } from "./payroll-dates.ts";
-import type { createMemoryTicketRepository } from "./payroll-tickets.ts";
-import { AgendaError, type Appointment, type SimulatedAgenda } from "./agenda-simulation.ts";
+import type { TicketRepository } from "./payroll-tickets.ts";
+import { AgendaError, type Appointment } from "./agenda-simulation.ts";
+import type { AgendaPort } from "./agenda-port.ts";
+import { PersistenceError, requireEventId } from "./persistence-unit.ts";
+import { createHash } from "node:crypto";
 import { dateNumber, displayAppointment } from "./agenda-time.ts";
 
 type Dependencies = Parameters<typeof createPayrollReception>[0];
-type Tickets = ReturnType<typeof createMemoryTicketRepository>;
+type Tickets = TicketRepository;
 type PayrollResult = Awaited<ReturnType<ReturnType<typeof createPayrollReception>["handleMessage"]>>;
 type Context = {
   owner: string; activity: number; ticketId?: string;
   phase: "idle" | "offer" | "select" | "confirm-book" | "confirm-cancel" | "confirm-move";
   choices: number[]; selected?: number; appointmentId?: string; moving?: boolean; offset: number;
+  confirmationKey?: string;
 };
 const YES = /^(?:si|si,? confirmo|confirmo|confirmar|de acuerdo)$/;
 const NO = /^(?:no|no confirmo)$/;
 const NAV = /^(?:cancelar|cancela|salir|menu(?: principal)?|inicio|regresar|volver|atras|anterior)$/;
 
-function reply(action: string, text: string): PayrollResult {
-  return {
-    collaboratorStatus: "active", action, classification: null,
-    reply: `Simulación 02-B; sin reserva real ni escritura en Neon. ${text}`
-  };
-}
-
 /**
- * Simulation entry point, deliberately NOT wired to the WhatsApp webhook.
- * Reuses 02-A unchanged; callers must share one agenda instance for one resource.
+ * Shared 02-B engine: synchronous simulation or asynchronous C4 persistence.
+ * Reuses 02-A; all mutations belong to the injected agenda/ticket repositories.
  */
 export function createAgendaReception(
-  dependencies: Dependencies, tickets: Tickets, agenda: SimulatedAgenda,
+  dependencies: Dependencies, tickets: Tickets, agenda: AgendaPort,
   options: { now?: () => number } = {}
 ) {
-  if (tickets.mode !== "simulation" || agenda.mode !== "simulation") {
+  const persistent = tickets.mode === "neon" && agenda.mode === "SIMULATION_ONLY";
+  if (!persistent && (tickets.mode !== "simulation" || agenda.mode !== "simulation")) {
     throw new AgendaError("SIMULATION_ONLY");
   }
   const now = options.now ?? Date.now;
   const payroll = createPayrollReception(dependencies, tickets, { now });
   const contexts = new Map<string, Context>();
   // Technical IDs only, never a history of prepared replies or message text.
-  const receipts = new Set<string>();
+  const receipts = new Map<string,string>();
   const queues = new Map<string, Promise<void>>();
+  function reply(action: string, text: string): PayrollResult {
+    const words = persistent ? text.replaceAll("simulada","registrada")
+      .replaceAll("simulado","registrado").replaceAll("ficticio","registrado")
+      .replace("registrada SOLO en el simulador","registrada en Neon") : text;
+    return {collaboratorStatus:"active",action,classification:null,
+      reply:(persistent ? "Prueba controlada, sin envío de WhatsApp. " :
+        "Simulación 02-B; sin reserva real ni escritura en Neon. ")+words};
+  }
 
   function describe(row: Appointment) {
-    const ticket = tickets.snapshot().find((ticket) => ticket.id === row.ticketId);
-    return `${displayAppointment(row.start)}, presencial, ticket ${ticket?.folio}.`;
+    return `${displayAppointment(row.start)}, presencial, ticket ${persistent ? "NOM" : "SIM-NOM"}-${row.ticketId}.`;
   }
-  function offer(context: Context, date?: string): PayrollResult {
+  async function offer(context: Context, date?: string): Promise<PayrollResult> {
     if (date) {
       try { dateNumber(date); } catch { throw new AgendaError("INVALID_DATE"); }
     }
-    const all = agenda.list({
+    const active = await agenda.active(context.ticketId!, context.owner);
+    const all = (await agenda.list({
       ticketId: context.ticketId!, collaboratorId: context.owner, now: now(), date,
       excludeId: context.moving ? context.appointmentId : undefined
-    }).filter((start) => !context.moving ||
-      start !== agenda.active(context.ticketId!, context.owner)[0]?.start);
+    })).filter((start) => !context.moving || start !== active[0]?.start);
     context.choices = all.slice(context.offset, context.offset + 6);
     context.phase = "select";
     delete context.selected;
@@ -70,8 +75,34 @@ export function createAgendaReception(
       return payroll.handleMessage(phone, text, key);
     }
     const owner = identity.id;
-    const receiptKey = key && /^[A-Za-z0-9_.:+/=-]{1,512}$/.test(key)
-      ? JSON.stringify([owner, key]) : null;
+    if (persistent) requireEventId(key!);
+    const receiptKey = key ? JSON.stringify([owner, key]) : null;
+    const fingerprint = createHash("sha256").update(text).digest("hex");
+    if (persistent && receiptKey && receipts.has(receiptKey) && receipts.get(receiptKey)!==fingerprint)
+      throw new PersistenceError("EVENT_CONFLICT");
+    // Read applied receipts BEFORE relying on volatile context. Never reinterpret
+    // an old confirmation using a newer draft. This lookup does not renew TTL.
+    if (persistent && key) {
+      const applied = await agenda.recover!(key,owner);
+      if (applied) {
+        const pending=contexts.get(phone);
+        if(pending?.confirmationKey===key){pending.phase="idle";pending.moving=false;}
+        if(receiptKey)receipts.set(receiptKey,fingerprint);
+        return reply("agenda_replayed","La operación ya fue confirmada en Neon. No repetí cambios. Puedes consultar cita para conocer el estado actual.");
+      }
+      const ticket = await tickets.findByConfirmation(key,owner);
+      if(ticket) {
+        // A redelivered prefix after restart may have reconstructed an uncertain
+        // payroll draft. Do not let its following old "sí" create another ticket.
+        if(!receiptKey || !receipts.has(receiptKey)){
+          payroll.reset(phone);
+          contexts.delete(phone);
+        }
+        if(receiptKey)receipts.set(receiptKey,fingerprint);
+        return reply("payroll_ticket_replayed",
+          `La confirmación ya tiene folio ${ticket.folio}. No repetí cambios. Puedes pedir «agendar cita» para retomar un ticket pendiente o consultar cita.`);
+      }
+    }
     const repeated = receiptKey ? receipts.has(receiptKey) : false;
     // Do not replay old promises/availability after time, cancellation or rescheduling.
     if (repeated) return reply("agenda_duplicate_ignored",
@@ -81,6 +112,7 @@ export function createAgendaReception(
       if (receivedAt - context.activity >= INACTIVITY_MS) contexts.delete(sender);
     }
     let context = contexts.get(phone);
+    const fresh = !context || context.owner !== owner;
     if (!context || context.owner !== owner) {
       // Reset only draft context. Tickets and agenda storage are independent.
       await payroll.handleMessage(phone, "cancelar");
@@ -90,10 +122,12 @@ export function createAgendaReception(
     const input = normalizePayrollInput(text);
     let result: PayrollResult;
     try {
-      if (NAV.test(input)) {
+      if (persistent && fresh && YES.test(input)) {
+        result=reply("agenda_context_required","No conservé un borrador confirmado para esa respuesta. Usa «agendar cita» para retomar una aclaración pendiente, «consultar cita» o «menú principal».");
+      } else if (NAV.test(input)) {
         contexts.delete(phone);
         result = await payroll.handleMessage(phone, text, key);
-      } else if (context.ticketId && !agenda.active(context.ticketId, owner).length &&
+      } else if (context.ticketId && !(await agenda.active(context.ticketId, owner)).length &&
         (/^(?:sin cita|no (?:quiero|deseo) agendar(?: una cita)?)$/.test(input) ||
           (context.phase === "offer" && input === "no"))) {
         const closed = await tickets.closeWithoutAppointment(context.ticketId, owner);
@@ -103,7 +137,7 @@ export function createAgendaReception(
         result = reply("payroll_closed_without_appointment",
           `Ticket ficticio ${closed.folio}: cerrado sin cita por negativa expresa. El asunto NO está resuelto.`);
       } else if (/^(?:consultar|ver|mi|mis) (?:cita|citas|reserva|reservas)$/.test(input)) {
-        const rows = agenda.forOwner(owner);
+        const rows = await agenda.forOwner(owner);
         context.phase = "idle";
         context.moving = false;
         context.choices = [];
@@ -115,7 +149,7 @@ export function createAgendaReception(
           ? rows.map((row, index) => `${index + 1}. ${describe(row)}`).join("\n")
           : "No hay una cita simulada vigente a tu nombre.");
       } else if (/^(?:cancelar|reprogramar)(?: (?:la|mi))? cita(?: \d+)?$/.test(input)) {
-        const rows = agenda.forOwner(owner);
+        const rows = await agenda.forOwner(owner);
         const number = input.match(/ (\d+)$/);
         const selected = number ? rows[Number(number[1]) - 1] : rows.length === 1 ? rows[0] : undefined;
         if (!selected) {
@@ -137,28 +171,30 @@ export function createAgendaReception(
           result = reply("agenda_confirm_intent", "¿Confirmas el cambio solicitado? Responde «confirmo» o «no».");
         } else if (context.phase === "confirm-cancel") {
           if (!key) throw new AgendaError("MISSING_EVENT_KEY");
-          agenda.cancel({ ticketId: context.ticketId!, collaboratorId: owner,
+          context.confirmationKey=key;
+          await agenda.cancel({ ticketId: context.ticketId!, collaboratorId: owner,
             id: context.appointmentId!, key, now: now() });
           context.phase = "idle";
           result = reply("agenda_cancelled", "Cita simulada cancelada. El ticket NO está resuelto.");
         } else {
           context.moving = true;
           context.offset = 0;
-          result = offer(context);
+          result = await offer(context);
         }
       } else if (context.phase === "confirm-book") {
         if (NO.test(input)) {
           context.offset = 0;
-          result = offer(context);
+          result = await offer(context);
         } else if (!YES.test(input)) {
           result = reply("agenda_confirmation_required", "Para registrar necesito «confirmo». Puedes responder «no» para elegir otra opción.");
         } else {
           if (!key) throw new AgendaError("MISSING_EVENT_KEY");
           const command = { ticketId: context.ticketId!, collaboratorId: owner,
             key, now: now(), start: context.selected! };
+          context.confirmationKey=key;
           const booked = context.moving
-            ? agenda.reschedule({ ...command, id: context.appointmentId! })
-            : agenda.book(command);
+            ? await agenda.reschedule({ ...command, id: context.appointmentId! })
+            : await agenda.book(command);
           context.phase = "idle";
           context.moving = false;
           context.appointmentId = booked.id;
@@ -166,7 +202,7 @@ export function createAgendaReception(
         }
       } else if (context.ticketId && (/^(?:mas|otras) opciones$/.test(input) || /^opciones(?: \d{4}-\d{2}-\d{2})?$/.test(input))) {
         context.offset = /^(?:mas|otras)/.test(input) ? context.offset + 6 : 0;
-        result = offer(context, input.match(/\d{4}-\d{2}-\d{2}/)?.[0]);
+        result = await offer(context, input.match(/\d{4}-\d{2}-\d{2}/)?.[0]);
       } else if (context.phase === "select") {
         const selection = input.match(/^(?:opcion )?(\d+)[.)]?$/);
         const start = selection ? context.choices[Number(selection[1]) - 1] : undefined;
@@ -180,8 +216,17 @@ export function createAgendaReception(
       } else if (context.ticketId && /^(?:si|agendar|agendar cita|reservar|reservar cita)$/.test(input)) {
         context.offset = 0;
         context.moving = false;
-        result = offer(context);
-      } else if (context.ticketId && agenda.active(context.ticketId, owner).length) {
+        result = await offer(context);
+      } else if (persistent && !context.ticketId &&
+        /^agendar(?: cita)?(?: nom-\d+)?$/.test(input)) {
+        const rows=await tickets.pendingForOwner!(owner);
+        const folio=input.match(/nom-(\d+)$/)?.[1];
+        const chosen=folio ? rows.find(r=>r.id===folio) : rows.length===1 ? rows[0] : undefined;
+        if(!chosen) result=reply("agenda_choose_existing_ticket",rows.length
+          ? "Hay varias aclaraciones pendientes. Indica «agendar NOM-folio» con el folio correspondiente."
+          : "No hay una aclaración pendiente sin reserva para retomar. Puedes iniciar desde el menú.");
+        else {context.ticketId=chosen.id;context.moving=false;context.offset=0;result=await offer(context);}
+      } else if (context.ticketId && (await agenda.active(context.ticketId, owner)).length) {
         result = reply("agenda_existing", "Ya hay una cita simulada para este ticket. Puedes consultar cita, cancelar cita o reprogramar cita; el ticket no se cierra por esta respuesta.");
       } else {
         result = await payroll.handleMessage(phone, text, key);
@@ -190,7 +235,9 @@ export function createAgendaReception(
           if (ticket && ticket.status === "pendiente de cita") {
             context.ticketId = ticket.id;
             context.phase = "offer";
-            result.reply = `Simulación: ticket ficticio ${ticket.folio}, no guardado en Neon. ¿Deseas agendar una cita presencial simulada con RH? Responde sí o indica que no deseas agendar. No hay reserva real.`;
+            result.reply = persistent
+              ? `Ticket registrado en Neon con folio ${ticket.folio}. ¿Deseas agendar una cita presencial con RH? Todavía no hay reserva; necesito selección y confirmación.`
+              : `Simulación: ticket ficticio ${ticket.folio}, no guardado en Neon. ¿Deseas agendar una cita presencial simulada con RH? Responde sí o indica que no deseas agendar. No hay reserva real.`;
           }
         }
         if (result.action === "payroll_closed_without_appointment") {
@@ -199,6 +246,7 @@ export function createAgendaReception(
         }
       }
     } catch (error) {
+      if (error instanceof PersistenceError) throw error;
       if (!(error instanceof AgendaError)) throw error;
       if (["SLOT_UNAVAILABLE", "RESCHEDULE_UNAVAILABLE"].includes(error.code)) {
         context.phase = "select";
@@ -209,7 +257,7 @@ export function createAgendaReception(
       }
     }
     context.activity = receivedAt;
-    if (receiptKey) receipts.add(receiptKey);
+    if (receiptKey) receipts.set(receiptKey,fingerprint);
     return result;
   }
 

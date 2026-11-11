@@ -145,17 +145,23 @@ export async function clean(c, manifest, baseline, schema) {
   return locked(c, async () => {
     assert.equal(await inspect(c), schema);
     const {owner,prefix} = manifest;
-    assert(owner.startsWith("SYNTHETIC-C3-") && prefix.startsWith("SYNTHETIC-C3-"));
+    const c4=manifest.iteration==="02-C4";
+    const marker=c4?"SYNTHETIC-C4-":"SYNTHETIC-C3-";
+    assert(owner.startsWith(marker) && prefix.startsWith(marker));
+    if(c4) assert(/^0{10,}99$/.test(manifest.whatsapp) &&
+      manifest.fixtureDescription.startsWith("PRUEBA SINTETICA 02-C4:"));
     const ownerRows = (await c.query(`SELECT nombre,whatsapp,activo FROM public.colaboradores
       WHERE id_colaborador=$1`, [owner])).rows;
     assert(ownerRows.length <= 1);
     if (ownerRows.length) assert.deepEqual(ownerRows[0], {
-      nombre:"PRUEBA SINTETICA 02-C3 - NO ES PERSONA",whatsapp:null,activo:true
+      nombre:c4?"PRUEBA SINTETICA 02-C4 - NO ES PERSONA":"PRUEBA SINTETICA 02-C3 - NO ES PERSONA",
+      whatsapp:c4?manifest.whatsapp:null,activo:true
     });
     const ticketRows = (await c.query(`SELECT id_ticket::text AS id,id_mensaje_confirmacion AS event,
       descripcion,resumen FROM public.tickets WHERE id_colaborador=$1`, [owner])).rows;
-    assert(ticketRows.every(r => r.event?.startsWith(prefix) &&
-      r.descripcion === "PRUEBA SINTETICA 02-C3" && r.resumen === "PRUEBA SINTETICA 02-C3"));
+    assert(ticketRows.every(r => r.event?.startsWith(prefix) && (c4
+      ? r.descripcion===manifest.fixtureDescription && r.resumen.includes(manifest.fixtureDescription)
+      : r.descripcion === "PRUEBA SINTETICA 02-C3" && r.resumen === "PRUEBA SINTETICA 02-C3")));
     const ticketIds = ticketRows.map(r => r.id);
     const citaRows = (await c.query(`SELECT id_cita::text AS id FROM public.citas
       WHERE id_ticket=ANY($1::bigint[])`, [ticketIds])).rows;

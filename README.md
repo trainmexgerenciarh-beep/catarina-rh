@@ -9,7 +9,28 @@ Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
 
 El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución autorizada de esquema de 02-A y 02-C1 está documentada por separado.
 
-## Iteración 02-C3 — integración real controlada, webhook aún simulado
+## Iteración 02-C4 — webhook persistente, SIN SALIDA
+
+- [Arquitectura, pruebas, limpieza y actualización de los tres apartados rectores](docs/ITERACION_02_C4.md).
+- POST firmado enlazado a motores 02-A/02-B y adaptadores Neon asíncronos.
+  GET intacto; validación RAW HMAC y lote completo antes de negocio.
+- Recuperación por evento antes del borrador, ticket tras resumen confirmado,
+  agenda presencial, cancelación/reprogramación, negativa expresa sin resolver.
+- `SIMULATION_ONLY` significa **sin envío**; ahora sí hay persistencia en Neon.
+  HTTP 200 solo acusa recepción; no es confirmación funcional de reserva.
+- E2E local 6 grupos y E2E Neon 6 grupos PASS; ocho regresiones PASS.
+  Fixtures exactos retirados: 5 recibos, 2 citas, 2 tickets y un colaborador
+  ficticio no enrutable. Doce huellas iguales; catálogo/horarios intactos.
+- No se ejecutó Meta real ni WhatsApp saliente. Sin piloto, publicación,
+  migración, cambios de Secrets, Meta o privacidad GitHub.
+- Contexto local por proceso con caducidad 120 minutos; borradores inciertos
+  se vuelven a preguntar. Ver límites de reintentos/retención en el informe.
+- `test:webhook:e2e` es local. `test:webhook:neon` inspecciona por defecto;
+  `--commit-authorized` requiere autorización expresa de fixtures temporales.
+- Google Drive no fue editado; ChatGPT/Trainmex actualizarán LOS TRES apartados
+  rectores después de revisar el reporte.
+
+## Antecedente 02-C3 — integración real controlada, webhook aún simulado entonces
 
 - [Informe, evidencia, limpieza y material para los tres apartados maestros](docs/ITERACION_02_C3.md).
 - SQL real de adaptadores sin cambios: COMMIT temporal, procesos nuevos,

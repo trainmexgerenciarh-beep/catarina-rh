@@ -1,44 +1,20 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { json, type RequestHandler } from "@sveltejs/kit";
-import {
-  classificationFailureDetails,
-  classifyService
-} from "../../../../lib/server/gemini-service-classifier";
-import {
-  processIncomingConversationEvent,
-  summarizeConversationResults
-} from "../../../../lib/server/whatsapp-conversation.js";
-import { createPayrollReception } from "../../../../lib/server/payroll-reception.ts";
-import { createMemoryTicketRepository } from "../../../../lib/server/payroll-tickets.ts";
+import { timingSafeEqual } from "node:crypto";
+import type { RequestHandler } from "@sveltejs/kit";
+import { classifyService } from "../../../../lib/server/gemini-service-classifier";
+import { createPersistentReception } from "../../../../lib/server/persistent-reception.ts";
+import { createWebhookPost } from "../../../../lib/server/whatsapp-webhook-post.ts";
 import {
   listActiveServices,
-  lookupCollaboratorIdentity
+  lookupCollaboratorIdentity,
+  getNeonPool
 } from "../../../../lib/server/neon-collaborators";
 
-// Simulation remains explicit. The Neon write adapter is not activated here.
-const conversationManager = createPayrollReception({
-  lookupIdentity: lookupCollaboratorIdentity,
-  listActiveServices,
-  classifyService
-}, createMemoryTicketRepository());
-
-function isValidSignature(
-  rawBody: Buffer,
-  signatureHeader: string | null,
-  appSecret: string
-): boolean {
-  if (!signatureHeader || !/^sha256=[a-f0-9]{64}$/i.test(signatureHeader)) {
-    return false;
-  }
-
-  const receivedDigest = Buffer.from(signatureHeader.slice("sha256=".length), "hex");
-  const expectedDigest = createHmac("sha256", appSecret).update(rawBody).digest();
-
-  return (
-    receivedDigest.length === expectedDigest.length &&
-    timingSafeEqual(receivedDigest, expectedDigest)
-  );
-}
+// Lazy: invalid signatures/payloads cannot even select a business repository.
+// SIMULATION_ONLY remains a strict NO-OUTBOUND contract, not an in-memory DB.
+let conversationManager: ReturnType<typeof createPersistentReception> | undefined;
+const manager=()=>conversationManager??=createPersistentReception({
+  lookupIdentity:lookupCollaboratorIdentity,listActiveServices,classifyService
+},getNeonPool());
 
 function tokensMatch(received: string, expected: string): boolean {
   const receivedBuffer = Buffer.from(received);
@@ -75,59 +51,4 @@ export const GET: RequestHandler = ({ url }) => {
   return new Response("Forbidden", { status: 403 });
 };
 
-export const POST: RequestHandler = async ({ request }) => {
-  const appSecret = process.env.WHATSAPP_APP_SECRET;
-  if (!appSecret) {
-    return json(
-      { received: false, error: "Webhook not configured" },
-      { status: 503 }
-    );
-  }
-
-  const rawBody = Buffer.from(await request.arrayBuffer());
-  if (!isValidSignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
-    return json(
-      { received: false, error: "Invalid webhook signature" },
-      { status: 401 }
-    );
-  }
-
-  let payload: unknown;
-
-  try {
-    payload = JSON.parse(rawBody.toString("utf8"));
-  } catch {
-    return json({ received: false, error: "Invalid JSON" }, { status: 400 });
-  }
-
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
-    return json({ received: false, error: "Invalid webhook payload" }, { status: 400 });
-  }
-
-  let results;
-  try {
-    results = await processIncomingConversationEvent(
-      payload,
-      conversationManager
-    );
-  } catch (error) {
-    // Never log request data, message text, phone numbers, model output, or errors.
-    console.error(
-      "[whatsapp-webhook] Conversation processing failed",
-      classificationFailureDetails(error) ?? { kind: "processing", details: "omitted" }
-    );
-    return json(
-      { received: false, error: "Message processing unavailable" },
-      { status: 503 }
-    );
-  }
-
-  // The generated conversation prompt is intentionally discarded. Only aggregate
-  // processing counts are logged; no WhatsApp reply or user content is emitted.
-  console.info(
-    "[whatsapp-webhook] Conversation simulation completed",
-    summarizeConversationResults(results)
-  );
-
-  return json({ received: true });
-};
+export const POST: RequestHandler = createWebhookPost(manager);

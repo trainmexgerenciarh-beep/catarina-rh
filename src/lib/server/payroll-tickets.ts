@@ -33,6 +33,7 @@ export interface TicketRepository {
   findByConfirmation(key: string, collaboratorId: string): Promise<Ticket | null>;
   createConfirmed(input: ConfirmedTicket): Promise<Ticket>;
   closeWithoutAppointment(id: string, collaboratorId: string): Promise<Ticket>;
+  pendingForOwner?(collaboratorId: string): Promise<Ticket[]>;
 }
 
 export class TicketError extends PersistenceError {
@@ -137,6 +138,24 @@ export function createNeonTicketRepository(pool: Pick<pg.Pool, "connect">): Tick
 
   return {
     mode: "neon",
+    pendingForOwner(collaboratorId) {
+      return transaction(async c => {
+        const rows = (await c.query<Omit<Ticket,"folio">>(
+          `SELECT /*c4:pending*/ ${PROJECTION} FROM public.tickets
+           WHERE id_colaborador=$1 AND estado='pendiente de cita'
+             AND cerrado_en IS NULL AND resuelto_en IS NULL
+             AND EXISTS (SELECT 1 FROM public.colaboradores c
+               WHERE c.id_colaborador=$1 AND c.activo IS TRUE)
+             AND EXISTS (SELECT 1 FROM public.servicios s
+               WHERE s.id_servicio=tickets.id_servicio AND s.activo IS TRUE
+                 AND s.categoria='Nómina y prestaciones')
+             AND NOT EXISTS (SELECT 1 FROM public.citas a
+               WHERE a.id_ticket=tickets.id_ticket AND a.estado='PROGRAMADA')
+           ORDER BY id_ticket FOR SHARE`,[collaboratorId]
+        )).rows;
+        return rows.map(mapTicket);
+      });
+    },
     findByConfirmation(key, collaboratorId) {
       return transaction((client) => find(client, key, collaboratorId));
     },

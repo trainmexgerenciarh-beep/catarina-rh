@@ -1,6 +1,28 @@
 # Catarina RH — notas de desarrollo
 
-## Estado actual — 02-C3 probada; 02-C4 no iniciada
+## Estado actual — 02-C4 persistente y SIN SALIDA
+
+- Webhook enlazado a Neon mediante `createPersistentReception`, mismos motores
+  02-A/02-B y port asíncrono, sin segundo motor. GET intacto y POST RAW HMAC.
+  Validar lote completo antes de negocio; identificación activa antes de repositorios.
+- `SIMULATION_ONLY` ahora indica **NO OUTBOUND**, no «tickets solo en memoria».
+  No existe envío Graph API, piloto ni publicación. No habilitar por iniciativa.
+- Recibos/tickets por ID completo antes de usar contexto; respuesta 200 es acuse
+  de recepción, no éxito funcional. Error parcial devuelve 503, prefijo COMMIT
+  se recupera y borradores inciertos se preguntan otra vez. No Gemini bajo lock.
+- Contexto local caduca >=120 min; replay no renueva actividad. IDs/hashes
+  volátiles no equivalen a un historial durable de todos los mensajes.
+  No prometer consistencia multiproceso.
+- Pruebas 6 grupos E2E locales + 6 Neon PASS, ocho regresiones PASS; limpieza
+  exacta, 12 huellas/metadata iguales, 15 servicios y cinco horarios intactos.
+  Sin nuevas migraciones. Secuencias tickets18→20/citas10→13 no restablecidas.
+- Pruebas reales de fallos fueron arnés firmado, SQL real, COMMIT y proceso
+  nuevo; no Meta real ni corte físico de Neon. Reproducción real requiere
+  autorización vigente; por defecto `test:webhook:neon` solo inspecciona.
+- [Informe 02-C4](docs/ITERACION_02_C4.md) incluye material para los TRES
+  apartados de Drive; solo ChatGPT/Trainmex los actualizan y aceptan.
+
+## Antecedente — 02-C3 probada antes de conectar el webhook
 
 - El 11 de noviembre de 2026 se ejecutó integración real controlada autorizada:
   COMMIT temporal, procesos nuevos, concurrencia observada entre backends,
@@ -14,8 +36,8 @@
 - Informe y material para los TRES apartados de Google Drive:
   [Integración 02-C3](docs/ITERACION_02_C3.md). Drive solo lo actualiza
   ChatGPT/Trainmex después de revisar; Replit no lo editó.
-- **Webhook sigue en memoria, SIMULATION_ONLY, sin envíos ni publicación.**
-  02-C4 requiere autorización separada. No declarar recepción operativa por WhatsApp.
+- En esa etapa el webhook seguía en memoria. La autorización posterior de
+  02-C4 se documenta arriba. No declarar recepción productiva por WhatsApp.
 - Igualdad de frontera exacta: predicado SQL con un reloj post-lock; no prometer
   microinstante exacto entre llamadas de red. Acuse perdido fue inyección de
   cliente después de COMMIT real, no corte físico de red.
@@ -25,8 +47,8 @@
 - Adaptadores preparados en `neon-agenda.ts` y `payroll-tickets.ts`, unidad
   `inAgendaTransaction`: una conexión, mismo advisory lock institucional para
   agenda y tickets, recibo/cita en una transacción. Nunca Gemini bajo el lock.
-- El webhook sigue seleccionando memoria; no conectar estos adaptadores sin
-  autorización de 02-C4. `SIMULATION_ONLY` no es permiso de escribir con pool real.
+- La selección en memoria fue el límite de 02-C2; 02-C4 fue autorizada y probada
+  posteriormente. `SIMULATION_ONLY` por sí solo no es autorización de fixtures.
 - Recibos versión 1 originales e inmutables por evento, huella determinista,
   sin transcripciones/propietario en el resultado. Sin caducidad/borrado
   automático en esta etapa; política definitiva de retención pendiente.

@@ -6,7 +6,27 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
-## Iteración 02-C3 — integración real controlada
+## Iteración 02-C4 — recepción persistente SIN SALIDA
+
+**IMPLEMENTADA / 6 GRUPOS E2E LOCALES Y 6 NEON PASS / LIMPIEZA PASS /
+OCHO REGRESIONES PASS / PENDIENTE ACEPTACIÓN CHATGPT–TRAINMEX.**
+
+| Registro | Evidencia |
+|---|---|
+| Fuente | GET del documento oficial, tres pestañas; aceptación previa de C3 contrastada; autorización C4 de esta solicitud. Drive/rectores intactos. |
+| Integración | Mismos motores 02-A/02-B, interfaz asíncrona, adaptadores C2. POST RAW HMAC y GET preservados; repositorios elegidos después de firma/payload. |
+| Persistencia | HTTPS firmado al workflow confirmó ticket/cita, movió misma cita, recuperó replay, canceló y cerró solo por negativa expresa, nunca resolvió. |
+| Lotes/recuperación | Handler firmado + SQL real: prefijo COMMIT y sufijo ROLLBACK, reentrega sin duplicar; COMMIT con acuse perdido inyectado y proceso nuevo. 200 no significa éxito funcional. |
+| Pruebas locales | HMAC/JSON/ID inválidos sin identidad/SQL, acceso denegado, duplicados/collisiones, reinicio de lotes, TTL exacto sin renovación por duplicado, logs sin datos. |
+| Neon | Un colaborador ficticio no enrutable, 2 tickets, 2 citas y 5 recibos retirados por IDs exactos. Doce huellas/metadata iguales, catálogo15/horarios5 preservados. Secuencias18→20/10→13. |
+| Límites | Meta real NO ejecutado; ningún WhatsApp enviado. Contexto solo por proceso; pérdida de acuse es inyección de cliente. Concurrencia real acreditada en C3, no repetida aquí. |
+| Alcance | Sin DDL, Meta, Secrets, hosting, privacidad GitHub ni publicación. Sin nuevos módulos/estados de negocio. Aceptación y próximos permisos corresponden a ChatGPT/Trainmex. |
+
+Evidencia y propuestas para actualizar **Documento Maestro, Plano Funcional y
+Gestión del Proyecto**: [informe 02-C4](ITERACION_02_C4.md).
+Google Drive no fue editado; conservar históricos al actualizar después de revisión.
+
+## Antecedente 02-C3 — integración real controlada
 
 **12/12 GRUPOS PASS / LIMPIEZA PASS / OCHO REGRESIONES PASS /
 PENDIENTE DE ACEPTACIÓN CHATGPT–TRAINMEX.**

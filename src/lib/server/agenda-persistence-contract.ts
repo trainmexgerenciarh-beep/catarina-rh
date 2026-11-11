@@ -32,6 +32,7 @@ export interface PersistentAgenda {
   execute(input: AgendaCommand): Promise<AppliedResult>;
   findApplied(eventId: string, collaboratorId: string): Promise<AppliedResult | null>;
   findAppointment(id: string, ticketId: string, collaboratorId: string): Promise<StoredAppointment | null>;
+  forOwner(collaboratorId: string): Promise<StoredAppointment[]>;
   listAvailable(input: {
     ticketId: string; collaboratorId: string; date: string; modality: Modality;
   }): Promise<string[]>;

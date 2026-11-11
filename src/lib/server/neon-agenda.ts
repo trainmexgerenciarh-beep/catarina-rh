@@ -124,6 +124,21 @@ export function createNeonAgendaRepository(
 
   return {
     mode: "SIMULATION_ONLY",
+    forOwner(collaboratorId) {
+      return transaction(async c => {
+        const rows = (await c.query<StoredAppointment>(
+          `SELECT /*c4:owner*/ a.id_cita::text AS id,a.id_ticket::text AS "ticketId",
+            a.inicio_programado AS start,a.fin_programado AS end,a.modalidad AS modality,a.estado AS status
+           FROM public.citas a JOIN public.tickets t ON t.id_ticket=a.id_ticket
+           JOIN public.colaboradores c ON c.id_colaborador=t.id_colaborador
+           JOIN public.servicios s ON s.id_servicio=t.id_servicio
+           WHERE t.id_colaborador=$1 AND c.activo IS TRUE AND s.activo IS TRUE
+             AND s.categoria='Nómina y prestaciones' AND a.estado='PROGRAMADA'
+           ORDER BY a.inicio_programado,a.id_cita FOR SHARE OF a,t,c,s`, [collaboratorId]
+        )).rows;
+        return rows.map(appointment);
+      });
+    },
     findApplied(eventId, collaboratorId) {
       requireEventId(eventId);
       return transaction(async c => {

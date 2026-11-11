@@ -37,6 +37,13 @@ export function fakeDatabase() {
               return answer([]);
             }
             if (sql === "ROLLBACK") { state = undefined; return answer([]); }
+            if(sql.includes("c4:owner")) return answer(state.appointments.filter(r =>
+              r.status==="PROGRAMADA" && state.tickets.some(t => t.id===r.ticketId &&
+                t.collaboratorId===params[0] && canAccess(t))));
+            if(sql.includes("c4:pending")) return answer(state.tickets.filter(t =>
+              t.collaboratorId===params[0] && canAccess(t) && t.status==="pendiente de cita" &&
+              !t.closedAt && !t.resolvedAt &&
+              !state.appointments.some(a=>a.ticketId===t.id && a.status==="PROGRAMADA")));
             if (sql === "COMMIT") {
               if (db.fault === "before-commit") { db.fault = null; throw new Error("PRIVATE_SQL"); }
               if (state) data = state;
