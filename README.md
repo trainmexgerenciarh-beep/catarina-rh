@@ -3,7 +3,35 @@
 Aplicación existente de recepción y administración de Recursos Humanos de Trainmex.
 SvelteKit + TypeScript, Neon PostgreSQL y SDK oficial de Gemini.
 
-## Preactivación — 11 de noviembre de 2026
+## Cierre técnico de activación — 11 de noviembre de 2026
+
+**Preparación verificada; WhatsApp real OFF, sin publicación ni piloto.**
+Informe vigente: **[docs/CIERRE_TECNICO_ACTIVACION.md](docs/CIERRE_TECNICO_ACTIVACION.md)**.
+
+- Aplicada únicamente `encuestas.entrega JSONB NULL`; siguen 14 tablas,
+  15 servicios y cinco horarios, sin cambios en sus datos institucionales.
+- Adaptador durable de entrega, claim/fencing, reintento acotado y revisión de
+  acuses inciertos. Transporte exclusivamente ficticio, sin locks durante envío.
+  Una aceptación ficticia NO marca `enviada_en` ni `recibio_atencion`.
+- Cron autenticado: `prepare` y `dispatch_test`; despacho real rechazado.
+  `npm run cron:test` nunca llama Graph. Ningún cron externo se activó.
+- Fuentes nuevas en borrador; Gerente aprueba tras revisar versión/vigencia;
+  lectura Drive comprobada, ninguna fuente aprobada por el agente.
+- Pruebas finales: **11 grupos entrega Neon**, **24 integración Neon**,
+  **6 HTTPS auth**, **8 UI**, regresiones/Gemini/HMAC/check/build PASS.
+- Limpieza de fixtures y huellas de las 14 tablas verificadas; secuencias
+  consumidas documentadas, no restablecidas.
+
+Pendiente del titular: cuentas RH específicas, directorio/documentos oficiales,
+hoja Sheets de prueba autorizada, canal/plantillas/destinatarios Meta y
+hosting/cron. No basta con añadir Secrets para convertir FAKE_ONLY en envío real.
+Pasos seguros y límites en el informe. Panel `/panel`, acceso `/login`,
+demostración ficticia aislada `/demo`.
+
+## Antecedente: preactivación — 11 de noviembre de 2026
+
+La siguiente sección conserva la evidencia del corte anterior. Su bloqueo de
+columna de entrega quedó resuelto en el cierre técnico enlazado arriba.
 
 **Código y pruebas entregados; SIN publicación ni mensajes WhatsApp reales.**
 Informe único y lista exacta de dependencias del titular:

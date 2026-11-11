@@ -21,7 +21,10 @@ export const queries:Record<string,string>={
   fuentes:"SELECT *,id_fuente::text,vigente_desde::text FROM public.fuentes ORDER BY nombre",
   consultas:"SELECT *,id_consulta::text FROM public.consultas ORDER BY fecha DESC LIMIT 2000",
   voz:"SELECT *,id_denuncia::text,'VOZ-'||id_denuncia AS folio FROM public.denuncias ORDER BY recibida_en DESC LIMIT 2000",
-  encuestas:`SELECT e.*,e.id_encuesta::text,e.id_cita::text,a.inicio_programado,a.modalidad
+  encuestas:`SELECT e.id_encuesta::text,e.id_cita::text,e.enviada_en,e.respondida_en,
+    e.calificacion,e.resolucion,e.comentario,e.recibio_atencion,
+    e.entrega->>'state' AS estado_entrega,e.entrega->>'mode' AS modo_entrega,
+    a.inicio_programado,a.modalidad
     FROM public.encuestas e JOIN public.citas a USING(id_cita) ORDER BY e.id_encuesta DESC LIMIT 2000`
 };
 export async function readRH(pool:pg.Pool,resource:string,role:Role) {
@@ -32,7 +35,7 @@ export async function readRH(pool:pg.Pool,resource:string,role:Role) {
     {label:"Neon",value:"Persistente",detail:"14 tablas; agenda institucional compartida"},
     {label:"Google Drive",value:"Verificable por fuente",detail:"Registra URL, versión y vigencia; verifica permisos antes de responder."},
     {label:"Google Sheets",value:process.env.RH_EXPORT_SPREADSHEET_ID?"Configurado; verificar permisos":"Destino pendiente",detail:"Archivo mensual de tickets ordinarios cerrados, sin Tu Voz ni borrado."},
-    {label:"Encuestas",value:"Preparación sin envío",detail:"Día siguiente de fecha programada, zona America/Mexico_City"},
+    {label:"Encuestas",value:"Entrega durable FAKE_ONLY",detail:"Día siguiente, reclamación/reintentos en Neon; sin envío real ni cron externo activado"},
     {label:"Contexto",value:"120 minutos",detail:"Compartido, revisionado y con lease/fencing; sin transcripciones completas"}
   ];
   if(resource==="dashboard"){
@@ -84,6 +87,14 @@ export async function writeRH(pool:pg.Pool,resource:string,action:string,d:Data,
     if(!r)throw new PersistenceError("NOT_FOUND");
     try{await readSource(r);}catch{throw new PersistenceError("DRIVE_READ_NOT_CONFIRMED");}
     return {verified:true,readOnly:true,officialApproval:"NOT_INFERRED"};
+  }
+  // Source activation is the manager's explicit approval of this exact version.
+  // Read Drive BEFORE opening a DB transaction. Reading is not content approval.
+  if(resource==="fuentes"&&action==="save"&&d.activo===true){
+    try{await readSource({id_fuente:String(d.id_fuente??""),nombre:text(d,"nombre",180),
+      categoria:text(d,"categoria",180),url_drive:text(d,"url_drive",500),
+      version:text(d,"version",80),vigente_desde:text(d,"vigente_desde",10)});}
+    catch{throw new PersistenceError("DRIVE_READ_NOT_CONFIRMED");}
   }
   return inAgendaTransaction(pool,async c=>{
     if(resource==="colaboradores"&&action==="save"){

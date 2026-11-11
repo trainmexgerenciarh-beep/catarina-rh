@@ -15,7 +15,8 @@ export interface DeliveryRepository{
 export type TestDelivery={kind:"text";to:string;text:string}|{kind:"template";to:string;name:string;language:string;appointmentDate:string};
 export type DeliveryResult={status:"ACCEPTED";messageId:string}|{status:"RETRYABLE"|"PERMANENT"|"UNKNOWN";code:string};
 /** This release ONLY supports an explicitly injected fictitious transport.
- * No live Graph client is imported here. A durable DB outbox needs approval.
+ * No live Graph client is imported here. PostgreSQL and memory repositories
+ * share this test-only contract; acceptance here is NOT real WhatsApp delivery.
  */
 export function createSurveyDispatcher(repository:DeliveryRepository,transport:{
   mode:"FAKE_ONLY";send(message:TestDelivery):Promise<DeliveryResult>

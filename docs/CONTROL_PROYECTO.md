@@ -6,7 +6,44 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
-## Preactivación — ejecución y verificación
+## Cierre técnico de activación — ejecución y verificación
+
+**IMPLEMENTADO Y VERIFICADO / WHATSAPP REAL OFF / SIN PILOTO NI PUBLICACIÓN /
+PENDIENTE ACEPTACIÓN.**
+
+- Autorización aplicada: solo `public.encuestas.entrega JSONB NULL`, sin CHECK,
+  índice, tabla nueva, default, backfill ni cambios a otras columnas.
+  Migración transaccional COMMIT; datos anteriores preservados.
+- Adaptador PostgreSQL de entrega v1 FAKE_ONLY: reclamación/lease/fencing,
+  resultado durable, backoff limitado y revisión sin reenvío ciego.
+  Transporte fuera de transacciones; ninguna llamada Graph real.
+- Cron seguro con `dispatch_test`, autenticación propia; real `dispatch` 409.
+  No se configuró Secret ni instaló scheduler externo.
+- Fuente nueva sin aprobar; Gerente debe revisar y activar versión/vigencia,
+  servidor comprueba lectura antes de activar, sin mantener lock durante Drive.
+  Lectura real del rector comprobada, ninguna fuente institucional aprobada.
+- Auth HTTPS aislado ampliado a seis grupos: roles, CSRF, logout/revocación,
+  reinicio, cambio de permisos y configuración ausente. Sin cuentas reales.
+- **11 grupos Neon entrega y 24 integral PASS**; tres rondas incrementales de
+  entrega (9/10/11), limpieza selectiva y 14 huellas iguales en cada ronda.
+  Secuencias no restablecidas, catálogo 15 y horarios 5 intactos.
+- **8 UI, 13 preactivación y regresiones PASS**, Gemini real, HMAC 200/401/401,
+  GET sintético público 200, check 0/0, build Node PASS.
+- Sheets solo simulado: no destino autorizado, ninguna escritura externa.
+  Ningún cambio a Secrets, Meta, Google Docs, visibilidad o hosting productivo.
+
+Informe único con contratos, SQL realmente aplicado, limpieza/secuencias,
+pasos del responsable y traspaso a las tres pestañas rectoras:
+**[CIERRE_TECNICO_ACTIVACION.md](CIERRE_TECNICO_ACTIVACION.md)**.
+Cinco dependencias externas: cuentas RH, directorio/documentos aprobados,
+Sheets prueba, revisión Meta/destinatarios/plantillas y hosting/cron.
+No queda pendiente autorización del esquema de entrega; sí sigue prohibida
+la salida real hasta nueva autorización/verificación.
+
+## Antecedente: preactivación — ejecución y verificación
+
+El bloqueo de esquema registrado a continuación corresponde al corte anterior,
+no al cierre técnico vigente.
 
 **IMPLEMENTADA EN REPOSITORIO / ÚLTIMAS PRUEBAS PASS / DESPACHO Y PILOTO
 BLOQUEADOS / PENDIENTE ACEPTACIÓN.**

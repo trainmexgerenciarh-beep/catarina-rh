@@ -10,6 +10,8 @@
     "check:integrations": "node scripts/check-integrations.mjs",
     "admin:bootstrap": "node scripts/admin-bootstrap.mjs",
     "cron:prepare": "node scripts/run-cron.mjs",
+    "cron:test": "node scripts/run-cron.mjs --test-dispatch",
+    "test:delivery:neon": "node scripts/test-survey-delivery-neon.mjs",
     "test:preactivation": "node scripts/test-preactivation.mjs",
     "test:auth:browser": "node scripts/test-auth-browser.mjs",
     "test:webhook": "node scripts/test-whatsapp-signature.mjs",

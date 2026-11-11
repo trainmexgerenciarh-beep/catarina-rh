@@ -49,7 +49,7 @@
       { key: 'url_drive', label: 'Enlace de Google Drive', type: 'url' },
       { key: 'version', label: 'Versión' },
       { key: 'vigente_desde', label: 'Vigente desde', type: 'date' },
-      { key: 'activo', label: 'Activa', type: 'checkbox' }
+      { key: 'activo', label: 'Aprobada por Gerente para consultas', type: 'checkbox' }
     ]
   };
 
@@ -202,7 +202,7 @@
       if (typeof form[key] === 'string') form[key] = (form[key] as string).slice(0, 5);
     }
     if (resourceName === 'colaboradores' || resourceName === 'servicios' || resourceName === 'fuentes') {
-      if (form.activo === undefined) form.activo = true;
+      if (form.activo === undefined) form.activo = resourceName !== 'fuentes';
     }
     error = '';
     notice = '';
@@ -420,13 +420,13 @@
       fuentes: ['nombre', 'categoria', 'version', 'vigente_desde', 'activo'],
       consultas: ['fecha', 'pregunta_resumen', 'resultado', 'id_ticket'],
       voz: ['recibida_en', 'categoria', 'descripcion', 'estado'],
-      encuestas: ['enviada_en', 'id_cita', 'recibio_atencion', 'calificacion', 'resolucion', 'comentario'],
+      encuestas: ['id_cita', 'estado_entrega', 'modo_entrega', 'enviada_en', 'recibio_atencion', 'calificacion', 'resolucion', 'comentario'],
       configuracion: ['label', 'value', 'detail']
     };
     if (!items.length) return preferred[resource] || [];
     const keys = Object.keys(items[0]);
     const chosen = (preferred[resource] || []).filter((key) => keys.includes(key));
-    return [...chosen, ...keys.filter((key) => !chosen.includes(key))].slice(0, resource === 'voz' ? 4 : 7);
+    return [...chosen, ...keys.filter((key) => !chosen.includes(key))].slice(0, resource === 'voz' ? 4 : resource === 'encuestas' ? 9 : 7);
   }
 
   function labelFor(key: string) {
@@ -712,7 +712,7 @@
         </form>
       {:else}
         <form on:submit={submitForm}>
-          <p class="modal-intro">{modal === 'fuentes' ? 'Guarda metadatos y la referencia aprobada en Drive. No se abre ni modifica el documento.' : modal === 'bloqueos' ? 'Registra un bloqueo parcial o completo en la agenda institucional.' : modal === 'servicios' ? 'El catálogo conserva sus nombres y categorías. Desde aquí solo se activa o desactiva un servicio existente.' : 'Actualiza la información operativa del registro.'}</p>
+          <p class="modal-intro">{modal === 'fuentes' ? 'Registra una fuente en borrador (sin aprobar), su versión y vigencia. Verificar solo comprueba lectura de Drive; no aprueba contenido. Solo el Gerente debe marcarla aprobada tras revisar el documento. No se modifica Drive.' : modal === 'bloqueos' ? 'Registra un bloqueo parcial o completo en la agenda institucional.' : modal === 'servicios' ? 'El catálogo conserva sus nombres y categorías. Desde aquí solo se activa o desactiva un servicio existente.' : 'Actualiza la información operativa del registro.'}</p>
           {#each fields[modal] || [] as field}
             {#if field.type === 'checkbox'}<label class="check-field"><input type="checkbox" checked={Boolean(form[field.key])} on:change={(event) => form[field.key] = (event.currentTarget as HTMLInputElement).checked} /><span>{field.label}</span></label>
             {:else if field.type === 'catalog'}

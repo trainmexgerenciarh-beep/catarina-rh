@@ -20,7 +20,14 @@ if(process.argv.includes("--private-https-child")){
       process.env.ORIGIN=`https://127.0.0.1:${server.address().port}`;
       ({handler}=await import("../build/handler.js"));
       process.send({ready:true,port:server.address().port});
-      process.on("message",m=>{if(m==="stop"){server.closeAllConnections();server.close(()=>process.exit(0));}});
+      process.on("message",m=>{
+        if(m==="stop"){server.closeAllConnections();server.close(()=>process.exit(0));}
+        if(m?.testConfig===true){
+          if(m.accounts===null)delete process.env.RH_ADMIN_ACCOUNTS;
+          else process.env.RH_ADMIN_ACCOUNTS=JSON.stringify(m.accounts);
+          process.send({configUpdated:true});
+        }
+      });
     }catch{process.send({ready:false});process.exit(1);}
   });
 }else{
@@ -130,6 +137,31 @@ if(process.argv.includes("--private-https-child")){
     assert.equal((await afterRestart.json()).authenticated,false);
     assert.equal((await anonymous.request.get(base+"/api/rh/tickets",{headers:{cookie:`rh_session=${surviving.value}`}})).status(),401);
     pass("Reinicio real del proceso SSR: sesión antigua invalidada, sin restauración insegura");
+    stage="config-change";
+    const setConfig=async list=>{
+      const ack=new Promise((resolve,reject)=>{
+        const timeout=setTimeout(()=>reject(new Error("CONFIG_ACK_TIMEOUT")),5000);
+        child.once("message",m=>{clearTimeout(timeout);m.configUpdated?resolve():reject(new Error("CONFIG_ACK_FAILED"));});
+      });
+      child.send({testConfig:true,accounts:list});await ack;
+    };
+    const context=await browser.newContext({ignoreHTTPSErrors:true});
+    assert.equal((await context.request.post(base+"/api/admin/login",{headers:{origin:base},
+      data:{email:accounts[1].email,password}})).status(),200);
+    assert.equal((await session(context)).role,"generalista");
+    await setConfig([accounts[0],{...accounts[1],role:"gerente"}]);
+    assert.equal((await session(context)).authenticated,false);
+    assert.equal((await context.request.get(base+"/api/rh/tickets")).status(),401);
+    assert.equal((await context.request.post(base+"/api/admin/login",{headers:{origin:base},
+      data:{email:accounts[1].email,password}})).status(),200);
+    assert.equal((await session(context)).role,"gerente");
+    await setConfig(null);
+    assert.equal((await session(context)).authenticated,false);
+    assert.equal((await context.request.post(base+"/api/admin/login",{headers:{origin:base},
+      data:{email:accounts[1].email,password}})).status(),503);
+    assert.equal((await context.request.get(base+"/api/rh/voz")).status(),401);
+    await context.close();
+    pass("HTTPS real: cambio de permisos revoca sesión y ausencia de configuración bloquea login y módulos");
     console.log(`AUTH NAVEGADOR: ${groups} grupos PASS. Login/logout/TLS/roles reales; datos RH mock; proceso privado sin Secrets reales, Neon ni Graph.`);
   }catch(e){console.error(`AUTH_TEST_FAILED stage=${stage} kind=${e?.name??"unknown"}`);process.exitCode=1;}
   finally{await browser?.close();await stop();if(dir)await rm(dir,{recursive:true,force:true});}

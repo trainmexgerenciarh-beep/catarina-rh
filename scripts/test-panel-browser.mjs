@@ -38,6 +38,7 @@ try{
   await modal.getByLabel(/^Enlace de Google Drive/).fill("https://docs.google.com/document/d/synthetic-document-only");
   await modal.getByLabel(/^Versión/).fill("TEST");
   await modal.getByLabel(/^Vigente desde/).fill("2026-01-01");
+  assert.equal(await modal.getByLabel("Aprobada por Gerente para consultas").isChecked(),false);
   await modal.getByRole("button",{name:/Guardar/}).click();await modal.waitFor({state:"hidden"});
   await page.getByText("Fuente ficticia UI",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Verificar",exact:true}).click();

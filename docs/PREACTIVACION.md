@@ -1,5 +1,11 @@
 # Catarina RH — informe final de preactivación
 
+> **Actualización posterior:** el bloqueo de esquema de este corte quedó resuelto
+> con una única columna nullable. Véase el informe vigente
+> [CIERRE_TECNICO_ACTIVACION.md](CIERRE_TECNICO_ACTIVACION.md), que conserva la
+> separación entre transporte ficticio durable y WhatsApp real deshabilitado.
+> El contenido siguiente permanece como evidencia histórica de este corte.
+
 **Corte: 11 de noviembre de 2026. Base: `839442b2a4cef69b735af93924bc00084b8fa0c9`.**
 
 **PREPARACIÓN IMPLEMENTADA Y VERIFICADA; NO ES ACTIVACIÓN PRODUCTIVA.**
