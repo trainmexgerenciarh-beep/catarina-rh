@@ -4,6 +4,7 @@ import type { Identity, Ticket, TicketRepository } from "./payroll-tickets.ts";
 import { TicketError } from "./payroll-tickets.ts";
 import { requireEventId } from "./persistence-unit.ts";
 import { displayFriday, normalizePayrollInput, parseFriday } from "./payroll-dates.ts";
+import { messageCache, periodic, stateSweeper, type MemoryOptions } from "./conversation-memory.ts";
 
 export const INACTIVITY_MS = 120 * 60 * 1000;
 const PAYROLL = "Nómina y prestaciones";
@@ -35,7 +36,7 @@ type Draft = {
   confirmationKey?: string;
   ticket?: Pick<Ticket, "id" | "folio" | "status">;
 };
-type Session = { ownerId: string; lastActivity: number; seenIds: Set<string>; draft?: Draft };
+type Session = { ownerId: string; lastActivity: number; draft?: Draft };
 
 function answer(action: string, reply: string): Result {
   return { collaboratorStatus: "active", action, reply, classification: null };
@@ -55,7 +56,7 @@ function validMessageId(value: string | undefined): value is string {
 export function createPayrollReception(
   dependencies: Dependencies,
   repository: TicketRepository,
-  options: { now?: () => number } = {}
+  options: MemoryOptions & { isBusy?: (phone: string) => boolean } = {}
 ) {
   const now = options.now ?? Date.now;
   const base = createConversationManager({
@@ -65,16 +66,14 @@ export function createPayrollReception(
   });
   const sessions = new Map<string, Session>();
   const queues = new Map<string, Promise<void>>();
-
-  function pruneExpired() {
-    const time = now();
-    for (const [phone, session] of sessions) {
-      if (time - session.lastActivity >= INACTIVITY_MS && !queues.has(phone)) {
-        sessions.delete(phone);
-        base.sessionStore.delete(phone);
-      }
-    }
-  }
+  let disposed = false;
+  const seen = messageCache(options);
+  const collectStates = stateSweeper(sessions,
+    session => now() - session.lastActivity >= INACTIVITY_MS,
+    phone => queues.has(phone) || Boolean(options.isBusy?.(phone)),
+    phone => { base.sessionStore.delete(phone); });
+  function pruneExpired() { collectStates(); seen.sweep(); }
+  const stop = periodic(pruneExpired, options);
 
   function ticketResult(ticket: Pick<Ticket, "folio" | "status">, action: string): Result {
     const prefix = repository.mode === "simulation"
@@ -255,9 +254,12 @@ export function createPayrollReception(
         return result;
       }
     }
-    session ??= { ownerId: identity.id, lastActivity: receivedAt, seenIds: new Set() };
-    if (validMessageId(key) && session.seenIds.has(key)) return answer("duplicate_ignored",
+    session ??= { ownerId: identity.id, lastActivity: receivedAt };
+    const seenKey = validMessageId(key) ? JSON.stringify([identity.id, key]) : null;
+    if (seenKey && seen.get(seenKey) !== undefined) return answer("duplicate_ignored",
       "Este mensaje ya fue recibido; no repetí la operación.");
+    // Track new sessions even when a later dependency fails after menu mutation.
+    sessions.set(phone, session);
     const input = normalizePayrollInput(text);
     const navigation = /^(?:cancelar|cancela|salir|menu(?: principal)?|inicio|regresar|volver|atras|anterior)$/.test(input);
     let result: Result;
@@ -294,12 +296,13 @@ export function createPayrollReception(
       }
     }
     session.lastActivity = receivedAt;
-    if (validMessageId(key)) session.seenIds.add(key);
+    if (seenKey) seen.set(seenKey, "");
     sessions.set(phone, session);
     return result;
   }
 
   function handleMessage(senderPhone: string, messageText: string, messageId?: string): Promise<Result> {
+    if (disposed) return Promise.reject(new TicketError("MEMORY_RUNTIME_DISPOSED"));
     const phone = String(senderPhone ?? "").replace(/\D/g, "");
     const text = String(messageText ?? "").trim();
     if (!phone || !text) return Promise.resolve({
@@ -311,11 +314,26 @@ export function createPayrollReception(
     const task = previous.then(() => process(phone, text, receivedAt, messageId));
     const marker = task.then(() => {}, () => {});
     queues.set(phone, marker);
-    return task.finally(() => { if (queues.get(phone) === marker) queues.delete(phone); });
+    return task.finally(() => {
+      if (queues.get(phone) === marker) queues.delete(phone);
+      if (disposed) releaseIdle();
+    });
   }
   function reset(senderPhone: string) {
     const phone=String(senderPhone??"").replace(/\D/g,"");
     sessions.delete(phone);base.sessionStore.delete(phone);
   }
-  return { handleMessage, pruneExpired, reset };
+  function releaseIdle() {
+    for (const phone of sessions.keys()) {
+      if (!queues.has(phone) && !options.isBusy?.(phone)) {
+        sessions.delete(phone); base.sessionStore.delete(phone);
+      }
+    }
+    if (!queues.size) seen.clear();
+  }
+  return { handleMessage, pruneExpired, reset,
+    memoryStats: () => ({ sessions: sessions.size, menus: base.sessionStore.size,
+      queued: queues.size, cache: seen.stats() }),
+    dispose() { disposed = true; stop(); releaseIdle(); }
+  };
 }

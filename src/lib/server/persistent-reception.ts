@@ -4,13 +4,14 @@ import { createNeonAgendaRepository } from "./neon-agenda.ts";
 import { persistentAgendaPort } from "./agenda-port.ts";
 import { createAgendaReception } from "./agenda-reception.ts";
 import type { createPayrollReception } from "./payroll-reception.ts";
+import type { MemoryOptions } from "./conversation-memory.ts";
 
 /** Only composition: the original payroll/menu and agenda engines remain the
  * business implementation. No sending API exists in this module.
  */
 export function createPersistentReception(
   dependencies: Parameters<typeof createPayrollReception>[0],pool: ConnectionPool,
-  options: {now?:()=>number} = {}
+  options: MemoryOptions = {}
 ) {
   return createAgendaReception(dependencies,createNeonTicketRepository(pool),
     persistentAgendaPort(createNeonAgendaRepository(pool,{mode:"SIMULATION_ONLY"})),options);

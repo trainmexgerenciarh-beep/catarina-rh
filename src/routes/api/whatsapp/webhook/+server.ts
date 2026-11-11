@@ -16,6 +16,10 @@ const manager=()=>conversationManager??=createPersistentReception({
   lookupIdentity:lookupCollaboratorIdentity,listActiveServices,classifyService
 },getNeonPool());
 
+// Release old process-local timers on dev hot reload; no durable state is touched.
+(import.meta as ImportMeta & { hot?: { dispose(fn: () => void): void } })
+  .hot?.dispose(() => conversationManager?.dispose());
+
 function tokensMatch(received: string, expected: string): boolean {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);

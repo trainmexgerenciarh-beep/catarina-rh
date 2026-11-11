@@ -6,6 +6,26 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
+## 02-D1A — refuerzo de memoria, SIN ESQUEMA NUEVO
+
+**IMPLEMENTADA / 9 GRUPOS NUEVOS + 6 E2E SIMULADOS PASS /
+OCHO REGRESIONES PASS / PENDIENTE ACEPTACIÓN.**
+
+- Barrido incremental periódico + control en acceso; 120 min intactos,
+  cola protegida, menús/borradores recogidos sin nueva entrada.
+- Cachés24h fijas/10.000/4MiB estimados por capa; capacidad no expulsa sesiones
+  activas ni modifica Neon. Dedupe durable de mensajes sin efecto sigue pendiente.
+- Reinicios en 11 puntos, confirmo ambiguo, recuperación de ticket/cita,
+  lote parcial503 y reintentos cubiertos con SQL/reloj ficticios.
+- Neon solo catálogos read-only; ninguna escritura, fixture, migración o
+  COMMIT de negocio. Continúan 12 tablas. Sin cambios Meta/Secrets/hosting,
+  WhatsApp saliente, piloto o publicación.
+- DDL de dos tablas únicamente [propuesto](ITERACION_02_D1_PROPUESTA.md);
+  no autorización 12→14. Decisiones/retención/privacidad siguen pendientes.
+- [Reporte](ITERACION_02_D1A.md) aporta material para los tres apartados
+  rectores. Drive no editado. 02-C4 fue aceptada en Drive después del informe
+  histórico siguiente; no confundir aceptación controlada con piloto.
+
 ## Iteración 02-C4 — recepción persistente SIN SALIDA
 
 **IMPLEMENTADA / 6 GRUPOS E2E LOCALES Y 6 NEON PASS / LIMPIEZA PASS /

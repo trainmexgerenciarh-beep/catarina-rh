@@ -9,6 +9,22 @@ Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
 
 El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución autorizada de esquema de 02-A y 02-C1 está documentada por separado.
 
+## 02-D1A — memoria local acotada, sin cambio de esquema
+
+- [Informe y pruebas](docs/ITERACION_02_D1A.md): 9 grupos nuevos de memoria,
+  6 E2E simulados y ocho regresiones PASS.
+- TTL funcional **120 minutos intacto**; barrido conservador cada 5 segundos,
+  hasta 200 entradas por mapa, con protección de trabajo en cola y control
+  adicional por acceso. No garantiza timers en un proceso suspendido.
+- Cachés técnicos: 24 h fijas, 10.000 entradas/4 MiB estimados por capa,
+  sin renovar actividad por duplicados reconocidos. No caducan registros Neon.
+- [Propuesta SQL de dos tablas](docs/ITERACION_02_D1_PROPUESTA.md):
+  **NO ejecutada ni aprobada**, 12 tablas actuales sin cambios.
+- Continúa memoria por proceso, pérdida de borradores al reiniciar y
+  deduplicación no durable para mensajes sin efecto. Sin piloto ni salida.
+- `npm run test:memory` solo usa reloj/timers/repositorios ficticios.
+  Google Drive no se modifica; ChatGPT/Trainmex revisan y actualizan tres apartados.
+
 ## Iteración 02-C4 — webhook persistente, SIN SALIDA
 
 - [Arquitectura, pruebas, limpieza y actualización de los tres apartados rectores](docs/ITERACION_02_C4.md).

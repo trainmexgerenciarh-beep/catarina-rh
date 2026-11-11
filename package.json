@@ -18,7 +18,8 @@
     "test:persistence": "node scripts/test-agenda-persistence.mjs",
     "test:integration:neon": "node scripts/test-neon-c3.mjs",
     "test:webhook:e2e": "node scripts/test-webhook-e2e.mjs",
-    "test:webhook:neon": "node scripts/test-webhook-neon.mjs"
+    "test:webhook:neon": "node scripts/test-webhook-neon.mjs",
+    "test:memory": "node scripts/test-conversation-memory.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

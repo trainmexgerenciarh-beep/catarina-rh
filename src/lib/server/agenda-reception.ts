@@ -6,6 +6,7 @@ import type { AgendaPort } from "./agenda-port.ts";
 import { PersistenceError, requireEventId } from "./persistence-unit.ts";
 import { createHash } from "node:crypto";
 import { dateNumber, displayAppointment } from "./agenda-time.ts";
+import { messageCache, periodic, stateSweeper, type MemoryOptions } from "./conversation-memory.ts";
 
 type Dependencies = Parameters<typeof createPayrollReception>[0];
 type Tickets = TicketRepository;
@@ -26,18 +27,26 @@ const NAV = /^(?:cancelar|cancela|salir|menu(?: principal)?|inicio|regresar|volv
  */
 export function createAgendaReception(
   dependencies: Dependencies, tickets: Tickets, agenda: AgendaPort,
-  options: { now?: () => number } = {}
+  options: MemoryOptions = {}
 ) {
   const persistent = tickets.mode === "neon" && agenda.mode === "SIMULATION_ONLY";
   if (!persistent && (tickets.mode !== "simulation" || agenda.mode !== "simulation")) {
     throw new AgendaError("SIMULATION_ONLY");
   }
   const now = options.now ?? Date.now;
-  const payroll = createPayrollReception(dependencies, tickets, { now });
+  const queues = new Map<string, Promise<void>>();
+  let disposed = false;
+  const payroll = createPayrollReception(dependencies, tickets, {
+    ...options, now, isBusy: phone => queues.has(phone)
+  });
   const contexts = new Map<string, Context>();
   // Technical IDs only, never a history of prepared replies or message text.
-  const receipts = new Map<string,string>();
-  const queues = new Map<string, Promise<void>>();
+  const receipts = messageCache(options);
+  const collectStates = stateSweeper(contexts,
+    context => now() - context.activity >= INACTIVITY_MS,
+    phone => queues.has(phone), phone => payroll.reset(phone));
+  function sweepMemory() { collectStates(); receipts.sweep(); payroll.pruneExpired(); }
+  const stop = periodic(sweepMemory, options);
   function reply(action: string, text: string): PayrollResult {
     const words = persistent ? text.replaceAll("simulada","registrada")
       .replaceAll("simulado","registrado").replaceAll("ficticio","registrado")
@@ -78,7 +87,7 @@ export function createAgendaReception(
     if (persistent) requireEventId(key!);
     const receiptKey = key ? JSON.stringify([owner, key]) : null;
     const fingerprint = createHash("sha256").update(text).digest("hex");
-    if (persistent && receiptKey && receipts.has(receiptKey) && receipts.get(receiptKey)!==fingerprint)
+    if (persistent && receiptKey && receipts.get(receiptKey)!==undefined && receipts.get(receiptKey)!==fingerprint)
       throw new PersistenceError("EVENT_CONFLICT");
     // Read applied receipts BEFORE relying on volatile context. Never reinterpret
     // an old confirmation using a newer draft. This lookup does not renew TTL.
@@ -94,7 +103,7 @@ export function createAgendaReception(
       if(ticket) {
         // A redelivered prefix after restart may have reconstructed an uncertain
         // payroll draft. Do not let its following old "sí" create another ticket.
-        if(!receiptKey || !receipts.has(receiptKey)){
+        if(!receiptKey || receipts.get(receiptKey)===undefined){
           payroll.reset(phone);
           contexts.delete(phone);
         }
@@ -103,15 +112,17 @@ export function createAgendaReception(
           `La confirmación ya tiene folio ${ticket.folio}. No repetí cambios. Puedes pedir «agendar cita» para retomar un ticket pendiente o consultar cita.`);
       }
     }
-    const repeated = receiptKey ? receipts.has(receiptKey) : false;
+    const repeated = receiptKey ? receipts.get(receiptKey)!==undefined : false;
     // Do not replay old promises/availability after time, cancellation or rescheduling.
     if (repeated) return reply("agenda_duplicate_ignored",
       "Este mensaje ya fue procesado; no repetí ninguna operación. Usa «consultar cita» para ver el estado actual.");
 
-    for (const [sender, context] of contexts) {
-      if (receivedAt - context.activity >= INACTIVITY_MS) contexts.delete(sender);
-    }
+    // Bounded collection plus direct access check; queued rows are never swept.
+    sweepMemory();
     let context = contexts.get(phone);
+    if (context && receivedAt - context.activity >= INACTIVITY_MS) {
+      contexts.delete(phone); payroll.reset(phone); context = undefined;
+    }
     const fresh = !context || context.owner !== owner;
     if (!context || context.owner !== owner) {
       // Reset only draft context. Tickets and agenda storage are independent.
@@ -262,6 +273,7 @@ export function createAgendaReception(
   }
 
   function handleMessage(sender: string, message: string, key?: string) {
+    if (disposed) return Promise.reject(new PersistenceError("MEMORY_RUNTIME_DISPOSED"));
     const phone = String(sender ?? "").replace(/\D/g, "");
     const text = String(message ?? "").trim();
     if (!phone || !text) return payroll.handleMessage(phone, text, key);
@@ -270,7 +282,18 @@ export function createAgendaReception(
     const task = previous.then(() => process(phone, text, receivedAt, key));
     const marker = task.then(() => {}, () => {});
     queues.set(phone, marker);
-    return task.finally(() => { if (queues.get(phone) === marker) queues.delete(phone); });
+    return task.finally(() => {
+      if (queues.get(phone) === marker) queues.delete(phone);
+      if (disposed && !queues.size) { payroll.dispose(); contexts.clear(); receipts.clear(); }
+    });
   }
-  return { handleMessage };
+  return { handleMessage, sweepMemory,
+    memoryStats: () => ({ contexts: contexts.size, queued: queues.size,
+      cache: receipts.stats(), payroll: payroll.memoryStats() }),
+    dispose() {
+      disposed = true; stop();
+      // In-flight work drains before either layer is released.
+      if (!queues.size) { payroll.dispose(); contexts.clear(); receipts.clear(); }
+    }
+  };
 }

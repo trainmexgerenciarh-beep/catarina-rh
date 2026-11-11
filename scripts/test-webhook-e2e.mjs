@@ -64,7 +64,7 @@ function fixture(){
   };
   return {db,logs,send,post,identities:()=>identityCalls,setActive:v=>{active=v;},
     loseNextCommit:()=>{loseCommit=true;},
-    restart(){manager=createPersistentReception(dependencies,mutationPool,{now:()=>db.now});}};
+    restart(){manager.dispose();manager=createPersistentReception(dependencies,mutationPool,{now:()=>db.now});}};
 }
 async function draft(c){
   const prefix=[];
