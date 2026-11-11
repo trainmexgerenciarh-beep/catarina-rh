@@ -1,13 +1,65 @@
 # Catarina RH
 
-Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
+Aplicación existente de recepción y administración de Recursos Humanos de Trainmex.
+SvelteKit + TypeScript, Neon PostgreSQL y SDK oficial de Gemini.
+
+## Entrega integral — 11 de noviembre de 2026
+
+- **[Abrir demostración aislada](/demo)**: directorio, tickets, agenda, fuentes,
+  consultas, Tu Voz, encuestas, indicadores y configuración, con datos ficticios.
+- `/demo?resource=simulacion`: conversaciones completas de las tres categorías.
+- `/panel` y `/login`: panel real protegido; sin cuentas universales. La
+  configuración de cuentas específicas por el responsable sigue pendiente.
+- Webhook autenticado conectado a contexto/eventos durables y motores existentes:
+  nómina, políticas con evidencia o faltante/cita remota y Tu Voz separado.
+- Agenda única presencial/remota, exclusión de solapamientos y recibos aplicados.
+- Preparación idempotente de encuestas el día posterior a la fecha programada;
+  atención recibida se registra separadamente de satisfacción/resolución.
+- **WhatsApp saliente BLOQUEADO; sin publicación ni contacto con trabajadores.**
+
+El esquema autorizado pasó de **12 a 14 tablas**, más
+`encuestas.recibio_atencion` nullable. Los 15 servicios y cinco horarios permanecen
+intactos. La migración fue explícita; la aplicación NO ejecuta migraciones al iniciar.
+
+**Informe de aceptación, matriz real/simulada, contratos, limpieza y activación:**
+[docs/ENTREGA_INTEGRAL.md](docs/ENTREGA_INTEGRAL.md).
+
+### Verificación
+
+`npm run check`, `npm run build`, `test:persistence`, `test:agenda`, `test:payroll`,
+`test:conversation`, `test:processing`, `test:webhook`, `test:webhook:e2e`,
+`test:memory`, `test:integral` y `test:ui`: PASS en esta entrega.
+La prueba real controlada alcanzó **20 grupos PASS**, la local integral nueve y
+la de navegador siete. Gemini se probó realmente con los 15 servicios.
+
+`npm run test:integral:neon` hace preflight de solo lectura. La variante
+`npm run test:integral:neon -- --authorized-synthetic-commit` **escribe fixtures
+temporales y requiere autorización vigente**, no solo conocer el comando.
+Los scripts históricos de integración se conservan para su esquema/hito original.
+
+### Activación externa pendiente
+
+No confundir código probado con autorización de producción. Faltan cuentas RH
+específicas en `RH_ADMIN_ACCOUNTS`, fuentes institucionales aprobadas/asignadas,
+destino autorizado `RH_EXPORT_SPREADSHEET_ID` y revisión de permisos/plantillas/
+envíos Meta. Drive fue leído desde la aplicación; la exportación Sheets real no
+se ejecutó. El transporte existe, pero no hay despachador saliente habilitado.
+El mantenimiento requiere un proceso vivo; alojamiento/programación productiva
+deben revisarse antes de activar. No se modificaron Secrets, Meta ni hosting.
 
 ## Documentos rectores vigentes
 
 - [Documento Maestro de Control — versión interna 1.2](CATARINA_RH_DOCUMENTO_MAESTRO_CONTROL_v1.1.md)
 - [Plano Funcional y Modelo de Datos — base 1.1 y adenda funcional 1.2](CATARINA_RH_PLANO_FUNCIONAL_Y_MODELO_DATOS_v1.0.md)
 
-El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución autorizada de esquema de 02-A y 02-C1 está documentada por separado.
+Los archivos conservan el historial y SQL original de las 11 tablas. La evolución
+autorizada posterior se documenta por separado. La entrega integral está pendiente
+de aceptación de Trainmex/ChatGPT; no se declara operación con colaboradores.
+
+## Historial técnico anterior a la entrega integral
+
+Los estados de las siguientes iteraciones describen su fecha de ejecución, no el
+esquema/contexto actual de 14 tablas descrito arriba.
 
 ## 02-D1A — memoria local acotada, sin cambio de esquema
 

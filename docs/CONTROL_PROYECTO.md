@@ -6,6 +6,48 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
+## Entrega integral autorizada — implementación y verificación
+
+**IMPLEMENTADA EN REPOSITORIO / VERIFICACIONES PASS / PENDIENTE ACEPTACIÓN
+Y ACTIVACIONES EXTERNAS. NO PUBLICADA. SIN ENVÍOS REALES.**
+
+- Se consultaron los tres apartados oficiales y el estándar Trainmex; se conservó
+  el proyecto, stack, historial rector y motores de nómina/agenda existentes.
+- Migración autorizada COMMIT: `contextos_conversacion`, `eventos_entrantes` y
+  `encuestas.recibio_atencion` nullable. **14 tablas**; doce tablas anteriores
+  conservadas, quince servicios/cinco horarios sin alteraciones.
+- Contexto mínimo durable, TTL 120 min, lease/fencing/revisión; duplicados
+  durables con y sin efectos, lotes parciales, reinicio y acuse COMMIT perdido.
+- Tres categorías completas: nómina/ticket/presencial o negativa expresa;
+  políticas con extracto autorizado o faltante/ticket/remota; Tu Voz separado
+  con confirmación y anotación de consentimiento, sin seguimiento automático.
+- Panel navegable, directorio, fuentes, tickets/cierres, agenda/bloqueos,
+  asistencia, encuestas, indicadores y demostración aislada. Dos roles previstos;
+  Tu Voz real restringido a Gerencia. Autenticación sin cuenta universal.
+- Encuestas preparadas idempotentemente por fecha programada; no atención NO se
+  convierte en no resuelto. Exportación mensual ordinaria implementada, dedupe
+  y archivado sin borrar: probada con Sheets simulado, no destino externo real.
+- SQL real: **20 grupos PASS**, COMMIT temporal, conexiones/procesos nuevos,
+  concurrencia, rollback/fencing, permisos, lotes HMAC y medios sin descarga.
+  Limpieza exacta y **14 huellas/conteos finales iguales**.
+- Última ronda: se eliminaron 50 eventos, un contexto, una encuesta, una consulta,
+  seis recibos, cuatro citas, cinco tickets, un registro Tu Voz, una fuente y un
+  colaborador ficticios. Un bloqueo ficticio se eliminó mediante el propio panel.
+  Ningún registro ajeno afectado; secuencias consumidas no se restablecieron.
+- Nueve grupos integrales locales, siete de navegador y regresiones
+  persistence/agenda/payroll/conversation/processing/webhook/memory/E2E PASS;
+  Gemini real, GET HTTPS, HMAC 200/401/401, check 0/0 y build PASS.
+- Pendientes de activación: cuentas RH específicas, fuentes institucionales
+  autorizadas, destino/permisos Sheets, revisión Meta/envíos y alojamiento.
+  Sin editar Secrets, Meta ni Google Drive. No afirmar piloto productivo o
+  entrega exactamente una vez de mensajes salientes.
+
+Detalle de pruebas, objetos, estados y material para **los tres apartados
+rectores**: [ENTREGA_INTEGRAL.md](ENTREGA_INTEGRAL.md). ChatGPT/Trainmex revisarán
+el informe antes de actualizar Drive; Replit no lo modificó.
+
+## Historial de hitos previos (estado de cada fecha)
+
 ## 02-D1A — refuerzo de memoria, SIN ESQUEMA NUEVO
 
 **IMPLEMENTADA / 9 GRUPOS NUEVOS + 6 E2E SIMULADOS PASS /

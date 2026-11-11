@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { RequestHandler } from "@sveltejs/kit";
 import { classifyService } from "../../../../lib/server/gemini-service-classifier";
-import { createPersistentReception } from "../../../../lib/server/persistent-reception.ts";
+import { createDurableConversation } from "../../../../lib/server/durable-conversation.ts";
 import { createWebhookPost } from "../../../../lib/server/whatsapp-webhook-post.ts";
 import {
   listActiveServices,
@@ -11,8 +11,8 @@ import {
 
 // Lazy: invalid signatures/payloads cannot even select a business repository.
 // SIMULATION_ONLY remains a strict NO-OUTBOUND contract, not an in-memory DB.
-let conversationManager: ReturnType<typeof createPersistentReception> | undefined;
-const manager=()=>conversationManager??=createPersistentReception({
+let conversationManager: ReturnType<typeof createDurableConversation> | undefined;
+const manager=()=>conversationManager??=createDurableConversation({
   lookupIdentity:lookupCollaboratorIdentity,listActiveServices,classifyService
 },getNeonPool());
 

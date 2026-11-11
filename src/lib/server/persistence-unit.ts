@@ -1,4 +1,9 @@
 import type pg from "pg";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+/** Existing repositories enlist in the final message transaction; no nested COMMIT. */
+const enlisted = new AsyncLocalStorage<pg.PoolClient>();
+export const withTransactionClient = <T>(client:pg.PoolClient,work:()=>Promise<T>)=>enlisted.run(client,work);
 
 /** One resource for ALL modalities, ticket confirmations and ticket closure.
  * Every future schedule/block writer must participate in this same protocol.
@@ -22,6 +27,8 @@ export class PersistenceError extends Error {
 export async function inAgendaTransaction<T>(
   pool: ConnectionPool, work: (client: pg.PoolClient) => Promise<T>
 ): Promise<T> {
+  const shared=enlisted.getStore();
+  if(shared)return work(shared);
   let client: pg.PoolClient | undefined;
   let committing = false;
   let destroy = false;

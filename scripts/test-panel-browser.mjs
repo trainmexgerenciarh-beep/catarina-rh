@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import {chromium} from "@playwright/test";
+import {mkdir} from "node:fs/promises";
+const base=`https://${process.env.REPLIT_DEV_DOMAIN}`;
+if(!process.env.REPLIT_DEV_DOMAIN)throw new Error("PREVIEW_DOMAIN_REQUIRED");
+const browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE??"/repl/tools/bin/chromium",headless:true,args:["--no-sandbox"]});
+const context=await browser.newContext({viewport:{width:1440,height:1000}});
+const page=await context.newPage(),errors=[];
+page.on("pageerror",()=>errors.push("browser-runtime-error"));
+let groups=0;const pass=name=>{groups++;console.log(name+": PASS");};
+try{
+  await page.goto(base+"/demo");await page.getByRole("heading",{name:"Buen día. Aquí está RH."}).waitFor();
+  await page.getByText("Colaboradores activos",{exact:true}).first().waitFor();
+  assert.equal((await context.request.get(base+"/api/rh/colaboradores")).status(),401);
+  assert.equal((await context.request.get(base+"/api/rh/voz")).status(),401);
+  pass("Panel demo carga datos aislados; endpoints reales requieren autenticación");
+  await page.goto(base+"/demo?resource=colaboradores");
+  await page.getByRole("button",{name:"Agregar colaborador"}).click();
+  const modal=page.getByRole("dialog");
+  for(const [label,value]of [["ID de colaborador","UI-SYNTHETIC"],["Nombre completo","Persona ficticia UI"],["WhatsApp","000000000000003"],["Centro","Centro ficticio"],["Departamento","Departamento ficticio"],["Puesto","Puesto ficticio"]])
+    await modal.getByLabel(new RegExp("^"+label)).fill(value);
+  await modal.getByRole("button",{name:/Guardar/}).click();await modal.waitFor({state:"hidden"});
+  await page.getByText("Persona ficticia UI",{exact:true}).waitFor();
+  await page.getByRole("row").filter({hasText:"Persona ficticia UI"}).getByRole("button",{name:"Editar"}).click();
+  await modal.getByLabel("Puesto",{exact:true}).fill("Puesto corregido");
+  await modal.getByRole("button",{name:/Guardar/}).click();await modal.waitFor({state:"hidden"});
+  await page.getByText("Puesto corregido",{exact:true}).waitFor();
+  pass("Directorio: alta y edición confirmadas por backend demo");
+  for(const resource of ["servicios","agenda","fuentes","consultas","voz","encuestas","indicadores","configuracion"]){
+    await page.goto(base+"/demo?resource="+resource);
+    await page.waitForFunction(()=>!document.body.textContent.includes("Cargando información"));
+    await page.locator(".page-heading h1").waitFor();
+  }
+  pass("Navegación de ocho módulos y estados vacíos/configuración");
+  await page.goto(base+"/demo?resource=fuentes");await page.getByRole("button",{name:"Agregar fuente"}).click();
+  await modal.getByLabel(/^Nombre de la fuente/).fill("Fuente ficticia UI");
+  await modal.getByLabel(/^Categoría/).selectOption({value:"Vacaciones"});
+  await modal.getByLabel(/^Enlace de Google Drive/).fill("https://docs.google.com/document/d/synthetic-document-only");
+  await modal.getByLabel(/^Versión/).fill("TEST");
+  await modal.getByLabel(/^Vigente desde/).fill("2026-01-01");
+  await modal.getByRole("button",{name:/Guardar/}).click();await modal.waitFor({state:"hidden"});
+  await page.getByText("Fuente ficticia UI",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Verificar",exact:true}).click();
+  await page.getByRole("alert").filter({hasText:/Demostración sin acceso/}).waitFor();
+  pass("Editor de fuentes: catálogo y vigencia, ausencia de conexión no finge verificación");
+  await page.goto(base+"/demo?resource=simulacion");
+  const send=async text=>{
+    await page.getByLabel("Mensaje para Catarina").fill(text);
+    const response=page.waitForResponse(r=>r.url().endsWith("/api/demo/conversation")&&r.request().method()==="POST");
+    await page.getByRole("button",{name:/^Enviar/}).click();
+    const r=await response;assert.equal(r.status(),200);await page.getByRole("button",{name:/^Enviar/}).waitFor();
+    return r.json();
+  };
+  for(const t of ["hola","1","Pago semanal","13/11/2026","El pago semanal ficticio requiere una aclaración de prueba.","confirmo","no"])await send(t);
+  for(const t of ["menú principal","2","Quiero saber los requisitos de vacaciones","confirmo","sí","1"])await send(t);
+  assert.equal((await send("confirmo")).action,"remote_registered");
+  for(const t of ["menú principal","3","Ideas y mejoras","Idea ficticia para mejorar la organización de la demostración.","confirmo"])await send(t);
+  assert.equal((await send("no")).action,"voice_registered");
+  pass("Conversación UI completa: nómina, políticas sin fuente/remota y Tu Voz");
+  await page.goto(base+"/panel");await page.getByRole("heading",{name:/Acceso administrativo pendiente|Tu sesión no está activa/}).waitFor();
+  await page.goto(base+"/login");await page.getByRole("heading",{name:"Te damos la bienvenida."}).waitFor();
+  pass("Panel real cerrado y pantalla de acceso sin cuenta universal");
+  await page.setViewportSize({width:402,height:874});await page.goto(base+"/demo?resource=agenda");await page.locator(".page-heading h1").waitFor();
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2));
+  await mkdir("generated-artifacts/screenshots",{recursive:true});
+  await page.screenshot({path:"generated-artifacts/screenshots/agenda-mobile.png",fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});await page.goto(base+"/demo");await page.locator(".metric-card").first().waitFor();
+  await page.screenshot({path:"generated-artifacts/screenshots/panel-desktop.png",fullPage:true});
+  assert.equal(errors.length,0);pass("Responsive 402px/1440px sin overflow ni errores JavaScript");
+  console.log(`PANEL: ${groups} grupos PASS; navegador real, fixtures demo aislados; no escrituras Neon ni WhatsApp.`);
+}finally{await browser.close();}

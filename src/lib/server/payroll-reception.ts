@@ -332,6 +332,15 @@ export function createPayrollReception(
     if (!queues.size) seen.clear();
   }
   return { handleMessage, pruneExpired, reset,
+    exportState(phone:string) {
+      return {menu:structuredClone(base.sessionStore.get(phone)??null),
+        nomina:structuredClone(sessions.get(phone)??null)};
+    },
+    importState(phone:string,state:{menu?:unknown;nomina?:unknown}) {
+      reset(phone);
+      if(state.menu)base.sessionStore.set(phone,structuredClone(state.menu) as never);
+      if(state.nomina)sessions.set(phone,structuredClone(state.nomina) as Session);
+    },
     memoryStats: () => ({ sessions: sessions.size, menus: base.sessionStore.size,
       queued: queues.size, cache: seen.stats() }),
     dispose() { disposed = true; stop(); releaseIdle(); }

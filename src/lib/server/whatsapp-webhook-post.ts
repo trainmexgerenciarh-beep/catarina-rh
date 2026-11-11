@@ -1,19 +1,24 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash,createHmac, timingSafeEqual } from "node:crypto";
 import { requireEventId } from "./persistence-unit.ts";
 import { summarizeConversationResults } from "./whatsapp-conversation.js";
 import type { createPayrollReception } from "./payroll-reception.ts";
 
-type Manager = Pick<ReturnType<typeof createPayrollReception>,"handleMessage">;
+type Manager = Pick<ReturnType<typeof createPayrollReception>,"handleMessage"> & {
+  handleUnsupported?:(phone:string,type:string,hash:string,eventId:string)=>ReturnType<ReturnType<typeof createPayrollReception>["handleMessage"]>;
+};
 function record(value: unknown): value is Record<string,unknown> {
   return typeof value==="object" && value!==null && !Array.isArray(value);
 }
+const canonical=(v:unknown):unknown=>Array.isArray(v)?v.map(canonical):record(v)?
+  Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
 /** Full-batch validation before any identity lookup or business operation.
- * Delivery/status/non-text notifications are acknowledged without business SQL.
+ * Delivery statuses are acknowledged; unsupported media are journaled as
+ * technical events only, without download, transcription or business effects.
  */
 function incoming(payload: unknown) {
   if(!record(payload)||payload.object!=="whatsapp_business_account"||!Array.isArray(payload.entry))
     throw new Error("Invalid envelope");
-  const messages:{phone:string;text:string;key:string}[]=[];
+  const messages:{phone:string;text:string;key:string;unsupported?:{type:string;hash:string}}[]=[];
   const seen=new Map<string,{phone:string;text:string}>();
   for(const entry of payload.entry){
     if(!record(entry)||!Array.isArray(entry.changes))throw new Error("Invalid entry");
@@ -26,7 +31,16 @@ function incoming(payload: unknown) {
       for(const m of change.value.messages){
         if(!record(m))throw new Error("Invalid message");
         if(typeof m.type!=="string")throw new Error("Invalid type");
-        if(m.type!=="text")continue;
+        if(m.type!=="text"){
+          if(typeof m.from!=="string"||!/^\d+$/.test(m.from)||typeof m.id!=="string")throw new Error("Invalid media envelope");
+          requireEventId(m.id);
+          const hash=createHash("sha256").update(JSON.stringify(canonical(m))).digest("hex");
+          const item={phone:m.from,text:`[unsupported:${m.type}:${hash}]`,key:m.id,unsupported:{type:m.type,hash}};
+          const prior=seen.get(m.id);
+          if(prior&&(prior.phone!==item.phone||prior.text!==item.text))throw new Error("Conflicting batch event");
+          if(!prior){seen.set(m.id,item);messages.push(item);}
+          continue;
+        }
         if(typeof m.from!=="string"||!/^\d+$/.test(m.from)||!record(m.text)||
           typeof m.text.body!=="string"||!m.text.body.trim()||typeof m.id!=="string")
           throw new Error("Invalid text message");
@@ -66,7 +80,12 @@ export function createWebhookPost(getManager:()=>Manager, options:{
     try {
       // Fail-fast. Re-delivery replays committed effects, skips seen draft events
       // without extending TTL and resumes the failed/not-yet-processed suffix.
-      for(const m of messages)results.push(await getManager().handleMessage(m.phone,m.text,m.key));
+      for(const m of messages){
+        const manager=getManager();
+        if(m.unsupported){
+          if(manager.handleUnsupported)results.push(await manager.handleUnsupported(m.phone,m.unsupported.type,m.unsupported.hash,m.key));
+        }else results.push(await manager.handleMessage(m.phone,m.text,m.key));
+      }
     }catch{
       logger.error("[whatsapp-webhook] Processing incomplete",{
         completed:results.length,total:messages.length,mode:"SIMULATION_ONLY",outbound:false

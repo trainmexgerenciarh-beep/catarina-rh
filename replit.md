@@ -1,6 +1,35 @@
 # Catarina RH — notas de desarrollo
 
-## Estado actual — 02-C4 persistente y SIN SALIDA
+## Estado vigente — entrega integral, NO OUTBOUND
+
+- Informe vigente: `docs/ENTREGA_INTEGRAL.md`; control:
+  `docs/CONTROL_PROYECTO.md`. Las secciones 02-C4/D1A siguientes son históricas.
+- Se conservan SvelteKit/TypeScript/Neon/Gemini y los motores originales.
+  `createDurableConversation` compone recepción completa y unidad transaccional;
+  no sustituirla por el repositorio demo o por otro motor.
+- Esquema vigente **14 tablas**: se autorizaron/aplicaron dos tablas aditivas
+  de contexto/eventos y `encuestas.recibio_atencion` nullable. No alterar otras
+  estructuras por iniciativa. Los 15 servicios y cinco horarios se conservaron.
+- Contexto mínimo compartido, TTL exacto 120 min, lease/fencing/revisión,
+  deduplicación durable y un cliente PostgreSQL para contexto/negocio/recibo final.
+  Gemini/Drive siempre fuera de transacciones. No purgar recibos provisionalmente.
+- `/demo` es ficticio/aislado; `/panel` y `/api/rh/*` requieren allowlist de
+  cuentas específicas, sin admin universal. Solo roles generalista/gerente;
+  Tu Voz restringido a gerente y nunca exportado al archivo común.
+- HMAC RAW/GET intactos. Transporte saliente bloqueado por defecto; ningún
+  camino actual habilita envíos. Mantenimiento solo limpia contexto vencido y
+  prepara encuestas, sin enviar. No publicar ni activar por iniciativa.
+- Pruebas vigentes: 20 grupos SQL real con limpieza de 14 tablas, nueve grupos
+  locales, siete de navegador, regresiones/check/build PASS. La variante de
+  prueba con COMMIT necesita autorización vigente y flag explícito; no ejecutar
+  automáticamente fixtures reales ni scripts históricos de esquema doce.
+- Activación pendiente del responsable: cuentas RH, fuentes institucionales,
+  destino/permisos Sheets, revisión de salida/plantillas Meta y hosting.
+  Drive leído realmente; exportación Sheets y entregas WhatsApp NO certificadas.
+- ChatGPT/Trainmex validan, aceptan y actualizan los tres apartados de Drive.
+  Replit no debe declararlos aceptados ni editar Google Drive en esta entrega.
+
+## Estado histórico — 02-C4 persistente y SIN SALIDA
 
 - Webhook enlazado a Neon mediante `createPersistentReception`, mismos motores
   02-A/02-B y port asíncrono, sin segundo motor. GET intacto y POST RAW HMAC.

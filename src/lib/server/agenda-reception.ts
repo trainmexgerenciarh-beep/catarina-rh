@@ -288,6 +288,11 @@ export function createAgendaReception(
     });
   }
   return { handleMessage, sweepMemory,
+    exportState(phone:string) {return {...payroll.exportState(phone),agenda:structuredClone(contexts.get(phone)??null)};},
+    importState(phone:string,state:{menu?:unknown;nomina?:unknown;agenda?:unknown}) {
+      contexts.delete(phone);payroll.importState(phone,state);
+      if(state.agenda)contexts.set(phone,structuredClone(state.agenda) as Context);
+    },
     memoryStats: () => ({ contexts: contexts.size, queued: queues.size,
       cache: receipts.stats(), payroll: payroll.memoryStats() }),
     dispose() {

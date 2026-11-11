@@ -19,10 +19,15 @@
     "test:integration:neon": "node scripts/test-neon-c3.mjs",
     "test:webhook:e2e": "node scripts/test-webhook-e2e.mjs",
     "test:webhook:neon": "node scripts/test-webhook-neon.mjs",
-    "test:memory": "node scripts/test-conversation-memory.mjs"
+    "test:memory": "node scripts/test-conversation-memory.mjs",
+    "test:integral": "node scripts/test-integral.mjs",
+    "test:integral:neon": "node scripts/test-integral-neon.mjs",
+    "test:ui": "node scripts/test-panel-browser.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",
+    "@playwright/test": "^1.65.0",
+    "@replit/connectors-sdk": "^0.7.0",
     "@sveltejs/adapter-auto": "^8.0.0",
     "@sveltejs/kit": "^3.1.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

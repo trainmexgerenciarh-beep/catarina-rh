@@ -46,7 +46,7 @@ export function createNeonAgendaRepository(
        JOIN public.colaboradores c ON c.id_colaborador=t.id_colaborador
        JOIN public.servicios s ON s.id_servicio=t.id_servicio
        WHERE t.id_ticket=$1 AND t.id_colaborador=$2 AND c.activo IS TRUE
-         AND s.activo IS TRUE AND s.categoria='Nómina y prestaciones'
+         AND s.activo IS TRUE AND s.categoria IN ('Nómina y prestaciones','Políticas y procedimientos')
        FOR UPDATE OF t FOR SHARE OF c,s`, [ticketId, owner]
     )).rows[0];
     if (!row) fail("ACCESS_DENIED");
@@ -133,7 +133,7 @@ export function createNeonAgendaRepository(
            JOIN public.colaboradores c ON c.id_colaborador=t.id_colaborador
            JOIN public.servicios s ON s.id_servicio=t.id_servicio
            WHERE t.id_colaborador=$1 AND c.activo IS TRUE AND s.activo IS TRUE
-             AND s.categoria='Nómina y prestaciones' AND a.estado='PROGRAMADA'
+             AND s.categoria IN ('Nómina y prestaciones','Políticas y procedimientos') AND a.estado='PROGRAMADA'
            ORDER BY a.inicio_programado,a.id_cita FOR SHARE OF a,t,c,s`, [collaboratorId]
         )).rows;
         return rows.map(appointment);
