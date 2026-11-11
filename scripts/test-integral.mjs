@@ -3,6 +3,7 @@ import {scryptSync} from "node:crypto";
 import {verifyLogin,readSession,signSession,sameOrigin} from "../src/lib/server/admin-auth.ts";
 import {sendWhatsApp} from "../src/lib/server/whatsapp-outbound.ts";
 import {groundedAnswer,driveId} from "../src/lib/server/institutional-sources.ts";
+import {contentHash} from "../src/lib/server/library-contract.ts";
 import {createDemoStore} from "../src/lib/server/demo-store.ts";
 import {startMaintenance} from "../src/lib/server/maintenance.ts";
 import {exportMonth} from "../src/lib/server/monthly-export.ts";
@@ -31,6 +32,8 @@ assert.equal(network,0);pass("Transporte WhatsApp bloqueado sin efectuar petici�
 assert.throws(()=>driveId("https://attacker.invalid/document/123"));
 const source={id_fuente:"1",nombre:"Documento ficticio",categoria:"Vacaciones",url_drive:"https://docs.google.com/document/d/synthetic-document-only",version:"TEST",vigente_desde:"2026-01-01"};
 const extract="Las vacaciones de esta política ficticia requieren autorización previa por el procedimiento descrito en este documento de prueba.";
+source.biblioteca={v:1,kind:"document",driveId:"synthetic-document-only",status:"APROBADO",type:"POLITICA/PREGUNTAS_TRABAJADOR",hash:contentHash(extract),
+  approval:{actor:"synthetic@example.invalid",at:"2026-01-01T12:00:00Z",hash:contentHash(extract),version:"TEST",scope:"Respuesta ficticia para trabajadores",fragments:[extract],validFrom:"2026-01-01"}};
 const grounded=await groundedAnswer("¿Las vacaciones requieren autorización previa?","Vacaciones",[source],async()=>extract);
 assert(grounded&&grounded.text.includes(extract)&&grounded.text.includes("versión TEST"));
 assert.equal(await groundedAnswer("vacaciones autorización previa","Vacaciones",[source],async()=>{throw new Error("permissions");}),null);

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import AdminUsers from './AdminUsers.svelte';
   import DirectoryImport from './DirectoryImport.svelte';
+  import DocumentLibrary from './DocumentLibrary.svelte';
 
   export let mode: 'demo' | 'admin';
 
@@ -14,7 +15,7 @@
     { id: 'tickets', label: 'Tickets', group: 'Operación', mark: '03' },
     { id: 'colaboradores', label: 'Directorio', group: 'Administración', mark: '04' },
     { id: 'servicios', label: 'Servicios', group: 'Administración', mark: '05' },
-    { id: 'fuentes', label: 'Fuentes', group: 'Administración', mark: '06' },
+    { id: 'fuentes', label: 'Biblioteca documental', group: 'Administración', mark: '06' },
     { id: 'usuarios', label: 'Usuarios y accesos', group: 'Administración', mark: '12' },
     { id: 'importar', label: 'Importar directorio', group: 'Administración', mark: '13' },
     { id: 'consultas', label: 'Consultas', group: 'Seguimiento', mark: '07' },
@@ -164,7 +165,7 @@
     loading = true;
     error = '';
     notice = '';
-    if(name === 'simulacion'||name === 'usuarios'||name === 'importar'){
+    if(name === 'simulacion'||name === 'usuarios'||name === 'importar'||name === 'fuentes' && mode === 'admin'){
       rows = [];
       loading = false;
       return; // Conversation uses its POST endpoint, not an imaginary data table.
@@ -555,7 +556,9 @@
         </div>
       </header>
       <section class="content">
-        {#if resource === 'importar'}
+        {#if resource === 'fuentes' && mode === 'admin'}
+          <DocumentLibrary {principal} />
+        {:else if resource === 'importar'}
           <DirectoryImport authorized={mode === 'admin' && principal} onImported={() => { resource = 'colaboradores'; loadResource('colaboradores', true); }} />
         {:else if resource === 'usuarios'}
           {#if mode === 'admin' && principal}<AdminUsers authorized={true} />

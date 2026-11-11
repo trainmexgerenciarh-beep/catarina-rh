@@ -10,6 +10,7 @@ import{createAccount}from"./admin-bootstrap.mjs";
 import{createDemoStore}from"../src/lib/server/demo-store.ts";
 import{OWNER_EMAIL}from"../src/lib/server/admin-users.ts";
 import{previewDirectory,parseDirectoryText}from"../src/lib/server/directory-import.ts";
+import{contentHash}from"../src/lib/server/library-contract.ts";
 if(process.argv.includes("--private-https-child")){
   process.once("message",async config=>{
     try{
@@ -83,6 +84,11 @@ if(process.argv.includes("--private-https-child")){
       store.write("fuentes","save",{nombre:"SYNTHETIC DATE TEST",categoria:"Políticas y procedimientos",
         url_drive:"https://docs.google.com/document/d/synthetic-source-not-real",version:"SYNTHETIC",
         vigente_desde:"2026-01-01",activo:false});
+      await page.route("**/api/admin/library",async route=>{
+        const docs=store.read("fuentes").filter(r=>r.nombre==="SYNTHETIC DATE TEST").map(r=>({...r,
+          biblioteca:{v:1,kind:"document",driveId:"synthetic-source-not-real",status:"BORRADOR",type:"PROCEDIMIENTO_INTERNO"}}));
+        return route.fulfill({json:{documents:docs,roots:[],categories:["Vacaciones"],resources:{},principal:email===OWNER_EMAIL}});
+      });
       await ctx.route("**/api/rh/*",async route=>{
         // ONLY data is mocked; identity, cookies, login/logout and role gates
         // are the actual production-built server, without DATABASE_URL.
@@ -125,16 +131,20 @@ if(process.argv.includes("--private-https-child")){
     assert.equal((await manager.request.post(base+"/api/admin/directory-import",{headers:{origin:base},data:{action:"preview",source:"sheet"}})).status(),403);
     assert.equal((await generalist.request.get(base+"/panel?resource=importar")).status(),403);
     assert.equal((await anonymous.request.get(base+"/panel?resource=importar")).status(),401);
+    assert.equal((await anonymous.request.get(base+"/api/admin/library")).status(),401);
+    for(const action of ["approve","root-save","sync","deactivate","resources"])
+      assert.equal((await generalist.request.post(base+"/api/admin/library",{headers:{origin:base},data:{action}})).status(),403);
     for(const [resource,action]of [["servicios","save"],["fuentes","save"],["configuracion","export"]])
       assert.equal((await generalist.request.post(base+"/api/rh/"+resource,{headers:{origin:base},data:{action,data:{}}})).status(),403);
     assert.equal((await manager.request.post(base+"/api/admin/logout",{headers:{origin:"https://attacker.invalid"},data:{}})).status(),403);
     assert.equal((await session(manager)).authenticated,true);
     await gn.goto(base+"/panel?resource=fuentes");await gn.locator(".page-heading h1").waitFor();
-    assert.equal(await gn.getByRole("button",{name:"Agregar fuente"}).count(),0);
-    await mg.goto(base+"/panel?resource=fuentes");await mg.getByRole("button",{name:"Agregar fuente"}).waitFor();
-    await mg.getByRole("row").filter({hasText:"SYNTHETIC DATE TEST"}).getByRole("button",{name:"Editar",exact:true}).click();
-    assert.equal(await mg.locator("input[type=date]").inputValue(),"2026-01-01");
-    await mg.getByRole("dialog").getByRole("button",{name:"Cancelar",exact:true}).click();
+    assert.equal(await gn.getByRole("button",{name:"Registrar carpeta"}).count(),0);
+    await mg.goto(base+"/panel?resource=fuentes");await mg.getByRole("heading",{name:"Biblioteca de documentos"}).waitFor();
+    await mg.locator(".document-row").filter({hasText:"SYNTHETIC DATE TEST"}).getByRole("button",{name:"Abrir ficha",exact:true}).click();
+    assert.equal(await mg.getByLabel(/Vigente desde.*Obligatoria/).inputValue(),"2026-01-01");
+    assert.equal(await mg.getByRole("button",{name:"Aprobar y publicar alcance"}).count(),0);
+    await mg.getByRole("button",{name:"Cerrar ficha",exact:true}).click();
     assert(await gn.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
     pass("Permisos reales previos a SQL, CSRF rechazado y acciones según rol/móvil");
     stage="logout";
@@ -255,7 +265,71 @@ if(process.argv.includes("--private-https-child")){
     await confirm.click();await op.getByRole("heading",{name:"Directorio",exact:true}).waitFor();
     assert.equal(confirmations,2);assert.equal(previewCalls,4);
     pass("Importador UI móvil/escritorio: fallback privado, revisión sin alta, consentimiento, invalidación y error sin falso éxito");
+    stage="library-ui";
+    await op.unroute("**/api/admin/library");
+    const pub="Para solicitar vacaciones de prueba, presenta tu solicitud a Recursos Humanos.";
+    let bodyText=pub+"\n\nInstrucciones ficticias restringidas a RH, nunca publicadas.",forbiddenRoot=true,approvals=0;
+    const lib={documents:[],roots:[],categories:["Vacaciones"],resources:{directoryId:"syntheticDirectory001",exportId:"syntheticExportSheet01"},principal:true};
+    await op.route("**/api/admin/library",async route=>{
+      if(route.request().method()==="GET")return route.fulfill({json:lib});
+      const d=route.request().postDataJSON();
+      if(d.action==="root-save"){
+        if(forbiddenRoot)return route.fulfill({status:400,json:{error:"No hay permiso de lectura de carpeta; usa enlace individual.",code:"LIBRARY_DRIVE_ACCESS"}});
+        lib.roots=[{id_fuente:"1",nombre:"Raíz ficticia UI",url_drive:d.url,biblioteca:{kind:"root",driveId:"syntheticRootBrowser001",enabled:true}}];
+      }
+      if(d.action==="sync")lib.documents=[{id_fuente:"2",nombre:"Documento ficticio UI",categoria:"Vacaciones",version:null,vigente_desde:null,
+        biblioteca:{v:1,kind:"document",driveId:"syntheticDocBrowser001",rootId:"1",status:"BORRADOR",type:"PROCEDIMIENTO_INTERNO",hash:contentHash(bodyText)}}];
+      if(d.action==="read")return route.fulfill({json:{ok:true,content:bodyText,hash:contentHash(bodyText)}});
+      if(d.action==="approve"){
+        assert.equal(d.expectedHash,contentHash(bodyText));assert.deepEqual(d.fragments,[pub]);assert(d.confirmed&&d.validityVerified&&d.contentReviewed);approvals++;
+        Object.assign(lib.documents[0],{version:d.version,vigente_desde:d.vigente_desde,biblioteca:{...lib.documents[0].biblioteca,
+          status:"APROBADO",approval:{actor:OWNER_EMAIL,at:new Date().toISOString(),hash:contentHash(bodyText),version:d.version,scope:d.scope,fragments:d.fragments}}});
+      }
+      if(d.action==="deactivate")lib.documents[0].biblioteca.status="INACTIVO";
+      return route.fulfill({json:{ok:true}});
+    });
+    assert.equal((await owner.request.post(base+"/api/admin/library",{headers:{origin:"https://attacker.invalid"},data:{action:"approve"}})).status(),403);
+    await op.goto(base+"/panel?resource=fuentes");
+    await op.getByRole("heading",{name:"Biblioteca de documentos"}).waitFor();
+    await op.getByRole("button",{name:"Registrar carpeta",exact:true}).first().click();
+    stage="library-folder";
+    await op.getByLabel("Nombre de referencia",{exact:true}).fill("Raíz ficticia UI");
+    await op.getByLabel("Enlace Drive",{exact:true}).fill("https://drive.google.com/drive/folders/syntheticRootBrowser001");
+    await op.getByRole("dialog").getByRole("button",{name:/Registrar carpeta|Guardar carpeta/}).click();
+    await op.getByText(/No hay permiso de lectura de carpeta/).first().waitFor();
+    forbiddenRoot=false;
+    await op.getByRole("dialog").getByRole("button",{name:/Registrar carpeta|Guardar carpeta/}).click();
+    await op.getByRole("button",{name:/Sincronizar.*Revisar cambios/}).click();
+    stage="library-review";
+    await op.getByRole("tab",{name:/Por revisar/}).click();
+    await op.getByRole("button",{name:"Abrir ficha"}).click();
+    const approve=op.getByRole("button",{name:"Aprobar y publicar alcance"});
+    assert(await approve.isDisabled());await op.getByRole("button",{name:"Leer en privado"}).click();
+    await op.locator(".document-content").waitFor();
+    await op.getByLabel(/Categoría.*Obligatoria/).fill("Vacaciones");
+    await op.getByLabel(/Versión.*Obligatoria/).fill("SYNTHETIC");
+    await op.getByLabel(/Vigente desde.*Obligatoria/).fill("2026-01-01");
+    await op.getByLabel(/Alcance/).fill("Solo solicitud ficticia de vacaciones");
+    await op.getByLabel(/Fragmentos exactos/).fill(pub);
+    stage="library-approval";
+    await op.getByLabel(/Revisé el contenido/).check();await op.getByLabel(/Verifiqué documentalmente/).check();await op.getByLabel(/Confirmo publicar/).check();
+    assert(await approve.isEnabled(),"Explicit review should enable approval");
+    op.once("dialog",d=>d.accept());await approve.click();
+    assert.equal(approvals,1);
+    stage="library-approved-list";
+    await op.getByRole("button",{name:"Cerrar ficha"}).click();
+    await op.getByRole("tab",{name:/Aprobados/}).click();
+    await op.getByRole("heading",{name:"Documento ficticio UI"}).waitFor();
+    await op.setViewportSize({width:402,height:874});assert(await op.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
+    op.once("dialog",d=>d.accept());await op.locator(".document-row").getByRole("button",{name:"Desactivar",exact:true}).click();
+    await op.getByRole("tab",{name:/Inactivos/}).click();await op.getByRole("heading",{name:"Documento ficticio UI"}).waitFor();
+    pass("Biblioteca UI HTTPS: carpeta denegada, sincronización, borrador/revisión/aprobación delimitada, retiro y móvil (Drive/datos mock)");
     console.log(`AUTH NAVEGADOR: ${groups} grupos PASS. Login/logout/TLS/roles reales; datos RH mock; proceso privado sin Secrets reales, Neon ni Graph.`);
-  }catch(e){console.error(`AUTH_TEST_FAILED stage=${stage} kind=${e?.name??"unknown"}`);process.exitCode=1;}
+  }catch(e){
+    console.error(`AUTH_TEST_FAILED stage=${stage} kind=${e?.name??"unknown"}`);
+    // This stage contains only synthetic fixtures in an isolated HTTPS child.
+    if(stage.startsWith("library"))console.error(String(e.message).slice(0,700));
+    process.exitCode=1;
+  }
   finally{await browser?.close();await stop();if(dir)await rm(dir,{recursive:true,force:true});}
 }

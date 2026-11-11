@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:library": "node scripts/test-document-library.mjs",
+    "check:library:drive": "node scripts/check-library-drive.mjs",
     "test:directory": "node scripts/test-directory-import.mjs",
     "check:sheets": "node scripts/check-authorized-sheets.mjs",
     "dev": "vite dev --host 0.0.0.0 --port 5000",

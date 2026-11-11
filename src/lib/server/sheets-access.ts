@@ -13,13 +13,14 @@ const check=async(r:Response)=>{
 };
 /** Drive and Sheets are two OAuth connections; never infer one identity from the
  * other. canEdit is evidence for Drive only; Sheets writing needs its own proof. */
-export async function inspectSheetsAccess(call:GoogleProxy=proxy){
-  const sheet=await check(await call("google-sheet",base+"?fields=sheets.properties(sheetId,title)",{method:"GET"}));
+export async function inspectSheetsAccess(call:GoogleProxy=proxy,id=EXPORT_SHEET_ID){
+  if(!/^[A-Za-z0-9_-]{10,}$/.test(id))throw new PersistenceError("SHEETS_DESTINATION_REQUIRED");
+  const sheet=await check(await call("google-sheet",`/v4/spreadsheets/${id}`+"?fields=sheets.properties(sheetId,title)",{method:"GET"}));
   let driveIdentity:string|null=null,driveCanEdit:boolean|null=null;
   try{
     const about=await check(await call("google-drive","/drive/v3/about?fields=user(emailAddress)",{method:"GET"}));
     driveIdentity=typeof about.user?.emailAddress==="string"?about.user.emailAddress:null;
-    const meta=await check(await call("google-drive",`/drive/v3/files/${EXPORT_SHEET_ID}?fields=capabilities(canEdit)`,{method:"GET"}));
+    const meta=await check(await call("google-drive",`/drive/v3/files/${id}?fields=capabilities(canEdit)`,{method:"GET"}));
     driveCanEdit=typeof meta.capabilities?.canEdit==="boolean"?meta.capabilities.canEdit:null;
   }catch{/* Independent Drive failure does not prove a Sheets permission failure. */}
   return {accessible:true,readOnly:true,driveIdentity,driveCanEdit,

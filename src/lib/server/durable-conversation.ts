@@ -3,6 +3,7 @@ import {createHash,randomUUID} from "node:crypto";
 import {inAgendaTransaction,withTransactionClient,PersistenceError,requireEventId} from "./persistence-unit.ts";
 import {createCompleteReception,type ReceptionDependencies,type Extension} from "./complete-reception.ts";
 import {groundedAnswer} from "./institutional-sources.ts";
+import {LIBRARY_LOCK,contentHash} from "./library-contract.ts";
 
 const TTL=120*60*1000,LEASE_MS=90_000;
 const digest=(owner:string,text:string)=>createHash("sha256").update(JSON.stringify([1,"whatsapp",owner,"text",text])).digest("hex");
@@ -96,11 +97,17 @@ export function createDurableConversation(deps:ReceptionDependencies,pool:pg.Poo
       const classification=needsClassification&&!unsupported?await deps.classifyService(text,services):
         {serviceId:null,classification:"sin clasificar" as const};
       const service=services.find(s=>s.idServicio===(extension.serviceId??classification.serviceId));
-      let answer=null;
+      let answer:Awaited<ReturnType<typeof groundedAnswer>>=null;
       if(!unsupported&&service?.categoria==="Políticas y procedimientos"&&
         !["summary","offer","booking","select","cancel","move","done"].includes(extension.phase??"")){
-        const sources=(await pool.query(`SELECT id_fuente::text,nombre,categoria,url_drive,version,vigente_desde::text
-          FROM public.fuentes WHERE activo IS TRUE AND categoria IN ($1,$2) ORDER BY id_fuente LIMIT 30`,
+        const sources=(await pool.query(`SELECT f.id_fuente::text,f.nombre,f.categoria,f.url_drive,f.version,f.vigente_desde::text,f.biblioteca
+          FROM public.fuentes f WHERE f.activo IS TRUE AND f.categoria IN ($1,$2)
+          AND f.biblioteca->>'kind'='document' AND f.biblioteca->>'status'='APROBADO'
+          AND (f.biblioteca->>'rootId' IS NULL OR EXISTS
+            (SELECT 1 FROM fuentes root WHERE root.id_fuente::text=f.biblioteca->>'rootId'
+             AND root.biblioteca->>'kind'='root' AND root.biblioteca->>'enabled'='true'
+             AND root.biblioteca->>'error' IS NULL))
+          ORDER BY f.id_fuente LIMIT 30`,
           [service.subcategoria,service.categoria])).rows;
         answer=await groundedAnswer(text,service.subcategoria??"",sources);
       }
@@ -115,6 +122,15 @@ export function createDurableConversation(deps:ReceptionDependencies,pool:pg.Poo
         if(services.some(s=>!active.includes(s.idServicio)))throw new PersistenceError("CATALOG_CHANGED");
         // Prior C4 confirmations are recovered by the original repositories, before drafts.
         const dbNow=new Date((await c.query("SELECT clock_timestamp() AS now")).rows[0].now).getTime();
+        if(answer){
+          await c.query("SELECT pg_advisory_xact_lock($1::bigint)",[LIBRARY_LOCK]);
+          const current=(await c.query(`SELECT f.biblioteca FROM fuentes f WHERE f.id_fuente=$1 AND f.activo
+            AND f.biblioteca->>'status'='APROBADO'
+            AND (f.biblioteca->>'rootId' IS NULL OR EXISTS
+              (SELECT 1 FROM fuentes root WHERE root.id_fuente::text=f.biblioteca->>'rootId'
+               AND root.biblioteca->>'enabled'='true' AND root.biblioteca->>'error' IS NULL))`,[answer.sourceId])).rows[0];
+          if(!current||contentHash(JSON.stringify(current.biblioteca))!==answer.proof)answer=null;
+        }
         manager=createCompleteReception({lookupIdentity:async()=>identity,
           listActiveServices:async()=>services,classifyService:async()=>classification},pool,{classification,answer},dbNow);
         manager.importState(phone,claim.state);

@@ -1,6 +1,7 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import {localDate} from "./agenda-time.ts";
-export type Source = {id_fuente:string;nombre:string;categoria:string;url_drive:string;version:string;vigente_desde:string};
+import {contentHash,validateFragments,type LibraryMeta} from "./library-contract.ts";
+export type Source = {id_fuente:string;nombre:string;categoria:string;url_drive:string;version:string;vigente_desde:string;biblioteca?:LibraryMeta};
 const connectors=new ReplitConnectors();
 export function driveId(url:string):string {
   const u=new URL(url);
@@ -12,6 +13,20 @@ export function driveId(url:string):string {
 export async function readSource(source:Source):Promise<string> {
   const id=driveId(source.url_drive);
   return readDriveText(id,async path=>connectors.proxy("google-drive",path,{method:"GET",signal:AbortSignal.timeout(20_000)}));
+}
+/** Revalidate live permission/content; never feed the whole internal procedure
+ * to the worker answer path. Old active=true alone is not publication consent. */
+export function authorizedFragments(source:Source,content:string):string[]|null{
+  const b=source.biblioteca,a=b?.approval,today=localDate(Date.now());
+  if(b?.kind!=="document"||b.status!=="APROBADO"||!a||b.error||!a.actor||!a.at||!a.scope||
+    a.hash!==b.hash||a.hash!==contentHash(content)||source.version!==a.version||
+    source.vigente_desde?.slice(0,10)!==a.validFrom||a.validFrom>today||a.validUntil&&a.validUntil<today||
+    !Array.isArray(a.fragments)||!a.fragments.length||a.fragments.some(f=>!content.replace(/\r\n?/g,"\n").includes(f)))return null;
+  try{
+    if(driveId(source.url_drive)!==b.driveId)return null;
+    validateFragments(content,a.fragments,b.type??"PROCEDIMIENTO_INTERNO");
+  }catch{return null;}
+  return a.fragments;
 }
 /** Only approved Drive hosts and Docs/text-PDF types, bounded bytes; no arbitrary URL fetch. */
 export async function readDriveText(id:string,request:(path:string)=>Promise<Response>):Promise<string>{
@@ -47,14 +62,19 @@ export async function groundedAnswer(question:string,service:string,sources:Sour
   for(const source of sources) {
     if(!source.version||!source.vigente_desde||source.vigente_desde.slice(0,10)>localDate(Date.now()))continue;
     try{
-      const text=await reader(source);
-      for(const p of text.split(/\r?\n\s*\r?\n/).map(x=>x.trim()).filter(x=>x.length>=40&&x.length<=1400)) {
+      const content=await reader(source),fragments=authorizedFragments(source,content);
+      if(!fragments)continue;
+      for(const p of fragments.filter(x=>x.length>=20&&x.length<=2500)) {
         const n=normalize(p),score=words.filter(w=>n.includes(w)).length;
         if(score>=Math.min(3,Math.max(2,words.length)))candidates.push({source,excerpt:p,score});
       }
     }catch{/* Explicitly missing evidence, never invented policy or a fabricated connector success. */}
   }
   candidates.sort((a,b)=>b.score-a.score);
+  // Multiple different qualifying extracts can conflict or require contextual
+  // interpretation. Do not guess precedence; route to RH instead.
+  if(new Set(candidates.map(c=>normalize(c.excerpt).trim())).size>1)return null;
   const best=candidates[0];
-  return best?{text:`La fuente institucional indica:\n«${best.excerpt}»\nFuente: ${best.source.nombre}, versión ${best.source.version}, vigente desde ${best.source.vigente_desde.slice(0,10)}.\n${best.source.url_drive}\nSi este extracto no responde tu caso, indica «necesito atención de RH».`,sourceId:best.source.id_fuente}:null;
+  return best?{text:`La fuente institucional indica:\n«${best.excerpt}»\nFuente: ${best.source.nombre}, versión ${best.source.version}, vigente desde ${best.source.vigente_desde.slice(0,10)}.\nSi este extracto no responde tu caso, indica «necesito atención de RH».`,sourceId:best.source.id_fuente,
+    proof:contentHash(JSON.stringify(best.source.biblioteca))}:null;
 }

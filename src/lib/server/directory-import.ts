@@ -5,6 +5,8 @@ import type {Admin} from "./admin-auth.ts";
 import {isOwner} from "./admin-users.ts";
 import {PersistenceError,AGENDA_LOCK_KEY} from "./persistence-unit.ts";
 import {DIRECTORY_SHEET_ID,DIRECTORY_RANGE} from "./sheets-config.ts";
+import {getProjectResources} from "./project-resources.ts";
+import {getNeonPool} from "./neon-collaborators.ts";
 
 type Cell=string|number|boolean|null;
 export type DirectoryRow={id_colaborador:string;nombre:string;whatsapp:string;centro:string|null;departamento:string;puesto:string;activo:boolean};
@@ -108,7 +110,8 @@ export function previewDirectory(matrix:Cell[][],existing:Existing[]){
     rechazos:rows.filter(r=>r.action==="RECHAZO").length}};
 }
 export async function readDirectorySheet(proxy:Proxy=request):Promise<Cell[][]>{
-  const r=await proxy(`/v4/spreadsheets/${DIRECTORY_SHEET_ID}/values/${encodeURIComponent(DIRECTORY_RANGE)}?valueRenderOption=FORMATTED_VALUE`,{method:"GET"});
+  const id=proxy===request?(await getProjectResources(getNeonPool())).directoryId:DIRECTORY_SHEET_ID;
+  const r=await proxy(`/v4/spreadsheets/${id}/values/${encodeURIComponent(DIRECTORY_RANGE)}?valueRenderOption=FORMATTED_VALUE`,{method:"GET"});
   if(!r.ok)fail([401,403,404].includes(r.status)?"IMPORT_SHEET_PERMISSION":"IMPORT_SHEET_UNAVAILABLE");
   const reader=r.body?.getReader();if(!reader)fail("IMPORT_INVALID_INPUT");
   const chunks:Uint8Array[]=[];let size=0;

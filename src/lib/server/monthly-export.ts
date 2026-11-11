@@ -4,6 +4,8 @@ import {ReplitConnectors} from "@replit/connectors-sdk";
 import {PersistenceError} from "./persistence-unit.ts";
 import {EXPORT_SHEET_ID} from "./sheets-config.ts";
 import {inspectSheetsAccess} from "./sheets-access.ts";
+import {getProjectResources} from "./project-resources.ts";
+import {getNeonPool} from "./neon-collaborators.ts";
 type Proxy=(path:string,init:{method:"GET"|"POST";body?:string;signal?:AbortSignal})=>Promise<Response>;
 const connectors=new ReplitConnectors();
 const request:Proxy=(path,init)=>connectors.proxy("google-sheet",path,{...init,signal:init.signal??AbortSignal.timeout(10000)});
@@ -26,10 +28,11 @@ function receipts(info:Info){
     owned.set(v.ticket,v);
   }return {all,owned};
 }
-const target=()=>{
+const target=async(pool?:pg.Pool)=>{
+  const id=pool?(await getProjectResources(pool)).exportId:EXPORT_SHEET_ID;
   const configured=process.env.RH_EXPORT_SPREADSHEET_ID;
-  if(configured&&configured!==EXPORT_SHEET_ID)throw new PersistenceError("SHEETS_DESTINATION_CONFLICT");
-  return `/v4/spreadsheets/${EXPORT_SHEET_ID}`;
+  if(configured&&configured!==id)throw new PersistenceError("SHEETS_DESTINATION_CONFLICT");
+  return `/v4/spreadsheets/${id}`;
 };
 const checked=async(r:Response,code:string)=>{
   if(!r.ok)throw new PersistenceError([401,403].includes(r.status)?"SHEETS_PERMISSION_REQUIRED":r.status===429?"SHEETS_RATE_LIMIT":code);
@@ -48,9 +51,9 @@ function indexRows(values:unknown):Map<string,string>{
   }return index;
 }
 export async function inspectExportDestination(proxy:Proxy=request){
-  target(); // Refuse an incompatible private override even for inspection.
-  if(proxy===request)return inspectSheetsAccess();
-  await checked(await proxy(target()+"?fields=spreadsheetId,sheets.properties.title",{method:"GET"}),"SHEETS_READ_UNCONFIRMED");
+  const base=await target(proxy===request?getNeonPool():undefined);
+  if(proxy===request)return inspectSheetsAccess(undefined,base.split("/").pop());
+  await checked(await proxy(base+"?fields=spreadsheetId,sheets.properties.title",{method:"GET"}),"SHEETS_READ_UNCONFIRMED");
   return {accessible:true,readOnly:true,writePermission:"NOT_PROVEN_WITHOUT_AUTHORIZED_WRITE"};
 }
 /** Transaction-scoped lock works with Neon's transaction pooler. Only this
@@ -61,7 +64,7 @@ export async function inspectExportDestination(proxy:Proxy=request){
  */
 export async function exportMonth(pool:pg.Pool,month:string,options:{proxy?:Proxy}={}){
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new PersistenceError("INVALID_MONTH");
-  const base=target(),rawProxy=options.proxy??request,title=`Tickets_${month.replace("-","_")}`;
+  const base=await target(options.proxy?undefined:pool),rawProxy=options.proxy??request,title=`Tickets_${month.replace("-","_")}`;
   const budget=AbortSignal.timeout(25000);
   const proxy:Proxy=async(path,init)=>{
     budget.throwIfAborted();

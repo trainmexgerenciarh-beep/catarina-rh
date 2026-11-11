@@ -8,6 +8,7 @@ import {PersistenceError} from "../../../../lib/server/persistence-unit";
 import {readJsonObject} from "../../../../lib/server/request-json";
 const messages:Record<string,string>={
   ACCESS_DENIED:"Tu perfil no tiene permiso para esta acción.",
+  LIBRARY_REVIEW_REQUIRED:"Usa Biblioteca documental: la publicación requiere aprobación de fragmentos, no solo activar un enlace.",
   INVALID_INPUT:"Revisa los campos obligatorios y sus formatos.",
   PHONE_ALREADY_REGISTERED:"Ese WhatsApp ya pertenece a otro registro. No se guardó un duplicado.",
   DRIVE_READ_NOT_CONFIRMED:"No se pudo confirmar la lectura de Drive. Revisa permisos y tipo de archivo.",

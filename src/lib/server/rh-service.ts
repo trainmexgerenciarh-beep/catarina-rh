@@ -84,6 +84,7 @@ export async function prepareSurveys(pool:ConnectionPool) {
   });
 }
 export async function writeRH(pool:pg.Pool,resource:string,action:string,d:Data,role:Role,actor?:string) {
+  if(resource==="fuentes"&&action==="save"&&d.activo===true)throw new PersistenceError("LIBRARY_REVIEW_REQUIRED");
   if(resource==="voz")throw new PersistenceError("ACCESS_DENIED");
   if(resource==="fuentes"&&action==="save"&&role!=="gerente")throw new PersistenceError("ACCESS_DENIED");
   if(resource==="encuestas"&&action==="prepare")return prepareSurveys(pool);
