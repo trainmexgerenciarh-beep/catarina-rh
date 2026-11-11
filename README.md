@@ -9,7 +9,26 @@ Base técnica inicial del sistema de servicios de Recursos Humanos de Trainmex.
 
 El Paquete Funcional 01 no está implementado íntegramente. Los archivos conservan el historial y SQL original de las 11 tablas; la evolución autorizada de esquema de 02-A y 02-C1 está documentada por separado.
 
-## Iteración 02-C2 — adaptadores aislados, no conectados al webhook
+## Iteración 02-C3 — integración real controlada, webhook aún simulado
+
+- [Informe, evidencia, limpieza y material para los tres apartados maestros](docs/ITERACION_02_C3.md).
+- SQL real de adaptadores sin cambios: COMMIT temporal, procesos nuevos,
+  idempotencia, concurrencia entre conexiones, GiST, cancelación y rollback.
+- **12/12 grupos PASS**, limpieza exacta PASS y ocho regresiones PASS.
+  Primera ejecución falló por comparación de orden de claves JSONB del test;
+  corrección exclusiva del helper, sin cambios funcionales.
+- Se retiraron todos los fixtures; conteos/huellas de las 12 tablas iguales,
+  15 servicios y cinco horarios intactos. Se consumieron valores de secuencias,
+  sin restablecerlos.
+- `npm run test:integration:neon` solo inspecciona; `--clock-only` verifica el
+  reloj/predicado con SELECT y ROLLBACK. `--commit-authorized` exige autorización
+  expresa para fixtures temporales y se detiene si hay datos operativos.
+- 02-C4 **no ejecutada**: webhook en memoria, sin salientes ni publicación.
+  Contexto volátil y retención definitiva de recibos siguen pendientes.
+- Google Drive y versiones rectoras locales no se editaron; ChatGPT/Trainmex
+  revisarán y actualizarán los tres apartados maestros.
+
+## Antecedente 02-C2 — alcance y resultados de esa etapa
 
 - [Contrato de recibos, interfaces, diagramas, pruebas y límites](docs/ITERACION_02_C2.md).
 - Unidad transaccional común: una conexión y un bloqueo institucional para
@@ -24,7 +43,7 @@ El Paquete Funcional 01 no está implementado íntegramente. Los archivos conser
 - Modo `SIMULATION_ONLY`; webhook permanece con repositorios en memoria.
   **02-C3 real y 02-C4 no ejecutadas**, no hay reservas operativas por WhatsApp.
 
-## Iteración 02-C1 — migración controlada aplicada
+## Antecedente 02-C1 — alcance y resultados de esa etapa
 
 - [SQL exacto, objetos, horarios, COMMIT y límites](docs/ITERACION_02_C1.md).
 - Neon tiene ahora **12 tablas**: se añadió únicamente `operaciones_citas`,

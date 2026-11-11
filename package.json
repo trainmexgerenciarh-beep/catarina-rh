@@ -15,7 +15,8 @@
     "test:payroll": "node scripts/test-payroll.mjs",
     "test:payroll:neon": "node scripts/test-payroll-neon.mjs",
     "test:agenda": "node scripts/test-agenda.mjs",
-    "test:persistence": "node scripts/test-agenda-persistence.mjs"
+    "test:persistence": "node scripts/test-agenda-persistence.mjs",
+    "test:integration:neon": "node scripts/test-neon-c3.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

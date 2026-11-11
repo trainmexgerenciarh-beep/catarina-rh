@@ -6,7 +6,29 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
-## Iteración 02-C2 — adaptadores y unidad transaccional aislados
+## Iteración 02-C3 — integración real controlada
+
+**12/12 GRUPOS PASS / LIMPIEZA PASS / OCHO REGRESIONES PASS /
+PENDIENTE DE ACEPTACIÓN CHATGPT–TRAINMEX.**
+
+| Registro | Evidencia actual |
+|---|---|
+| Precondiciones | 12 tablas/FKs/constraints/índices revisados, operativas vacías, sin triggers/RLS ni dependencia externa; 15 servicios y cinco horarios intactos. |
+| COMMIT | Tickets/folios, citas y recibos leídos desde conexiones y procesos nuevos; no dependieron del borrador volátil. |
+| Concurrencia | Backends distintos y espera comprobada por PostgreSQL; un ganador por intervalo compartido; adyacencia válida; solapamiento parcial rechazado por GiST 23P01. |
+| Atomicidad e idempotencia | Snapshot original recuperable; conflicto de huella y evento ticket/cita; mismo id_cita al mover; error SQL inyectado revirtió UPDATE sin recibo; acuse perdido simulado después de COMMIT real. |
+| Estados | Agendar/cancelar/mover no resolvió tickets; cierre sin cita tras CANCELADA solo mediante acción expresa separada. |
+| Reloj | Lectura posterior a espera real; prueba SELECT-only post-lock 120:00 TRUE/119:59 FALSE, sin congelar reloj ni afirmar igualdad end-to-end entre viajes de red. |
+| Primer fallo | Comparación de hashes de test sensible al orden JSONB; diagnóstico SELECT, corrección solo del helper. Limpieza completa también en ejecución fallida. |
+| Limpieza final | Segunda ejecución eliminó 7 recibos, 5 citas, 9 tickets y un colaborador ficticio; bloqueo revertido; 12 huellas/conteos iguales. Secuencias consumidas, no restablecidas. |
+| Alcance | Sin cambios funcionales ni de esquema, sin datos sensibles, servicios/horarios inalterados, webhook aún simulado, sin WhatsApp ni publicación; 02-C4 no iniciada. |
+
+Evidencia detallada, riesgos y texto suficiente para actualizar Documento
+Maestro, Plano Funcional y Gestión: [informe 02-C3](ITERACION_02_C3.md).
+**Google Drive no fue editado.** Sus tres apartados los actualizarán
+ChatGPT/Trainmex después de revisar, conservando históricos.
+
+## Antecedente 02-C2 — adaptadores y unidad transaccional aislados
 
 **IMPLEMENTADA / SUITES PASS / PENDIENTE DE ACEPTACIÓN.** Sin conexión al webhook
 ni escrituras Neon. No se ejecutó 02-C3; 02-C4 continúa separada.

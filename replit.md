@@ -1,6 +1,26 @@
 # Catarina RH — notas de desarrollo
 
-## Estado actual — 02-C2 aislada, 02-C3/02-C4 pendientes
+## Estado actual — 02-C3 probada; 02-C4 no iniciada
+
+- El 11 de noviembre de 2026 se ejecutó integración real controlada autorizada:
+  COMMIT temporal, procesos nuevos, concurrencia observada entre backends,
+  idempotencia, GiST, cancelación y reprogramación con rollback. 12/12 grupos PASS.
+- Limpieza exacta de fixtures y huellas/conteos iguales en las 12 tablas.
+  15 servicios y cinco horarios intactos; sin nuevos cambios de esquema.
+  Secuencias consumidas NO restablecidas. Ocho regresiones PASS.
+- `test:integration:neon` por defecto es SELECT-only; `--clock-only` usa
+  SELECT/ROLLBACK. No volver a ejecutar `--commit-authorized` sin autorización
+  vigente: se crean fixtures temporales y se requiere baseline operativo vacío.
+- Informe y material para los TRES apartados de Google Drive:
+  [Integración 02-C3](docs/ITERACION_02_C3.md). Drive solo lo actualiza
+  ChatGPT/Trainmex después de revisar; Replit no lo editó.
+- **Webhook sigue en memoria, SIMULATION_ONLY, sin envíos ni publicación.**
+  02-C4 requiere autorización separada. No declarar recepción operativa por WhatsApp.
+- Igualdad de frontera exacta: predicado SQL con un reloj post-lock; no prometer
+  microinstante exacto entre llamadas de red. Acuse perdido fue inyección de
+  cliente después de COMMIT real, no corte físico de red.
+
+## Contrato vigente — adaptadores aislados 02-C2
 
 - Adaptadores preparados en `neon-agenda.ts` y `payroll-tickets.ts`, unidad
   `inAgendaTransaction`: una conexión, mismo advisory lock institucional para
@@ -15,10 +35,11 @@
 - No reejecutar escrituras por COMMIT incierto: recuperar por evento.
   CANCELADA permite cierre explícito sin cita; cancelación no cierra ni resuelve.
 - `test:persistence`: 21 grupos SQL simulados PASS; agenda/payroll/conversation/
-  processing/webhook/check/build PASS. En Neon solo SELECT, sin fixtures.
+  processing/webhook/check/build PASS. En 02-C2 hubo solo SELECT; la prueba
+  autorizada posterior 02-C3 está documentada arriba.
 - Evidencia y deudas: [Iteración 02-C2](docs/ITERACION_02_C2.md).
-  Rectores/Drive intactos. No declarar operación por WhatsApp ni COMMIT real
-  de adaptadores probado. Las siguientes secciones conservan antecedentes.
+  Rectores/Drive intactos. No declarar operación por WhatsApp. Los límites de
+  evidencia de 02-C2 son históricos; 02-C3 comprobó COMMIT controlado posterior.
 
 ## Antecedente — 02-C1 aplicada
 
