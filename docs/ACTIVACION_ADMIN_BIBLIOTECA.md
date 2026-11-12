@@ -111,9 +111,33 @@ Después del login:
 
 ### Pruebas ejecutadas en esta entrega
 
-Los resultados finales se consignan en el mensaje de entrega. Los casos de
-bootstrap incluyen password correcto/incorrecto, cuenta extra, gestor intentando
-activar, creación única de las dos filas, repetición segura, no promoción de
-gestores y rollback de la base real. Las pruebas de biblioteca cubren permisos,
-inventario, borrador, fragmentos aprobados ficticios, cambios, retiro y
-rehidratación en proceso nuevo. El chequeo real de Drive no registra fuentes.
+| Comprobación | Resultado | Alcance |
+|---|---|---|
+| `npm run check` | PASS, 0 errores/0 avisos | Svelte/TypeScript |
+| `npm run build` | PASS | SvelteKit, adapter-node |
+| `npm run test:admin` | PASS, 9 grupos | SQL Neon real solo en ROLLBACK; sin cuentas reales |
+| `npm run test:library` | PASS, 6 grupos | SQL Neon real solo en ROLLBACK; Docs/fragmentos de prueba simulados |
+| `npm run test:auth:browser` | PASS, 9 grupos | HTTPS privado real, usuarios ficticios; APIs RH simuladas, sin Neon/Secrets |
+| `npm run test:integral` | PASS, 9 grupos | Datos ficticios y transportes simulados |
+| `npm run test:conversation` | PASS | Conversaciones simuladas |
+| `npm run test:webhook` | PASS | Firma válida 200; firma incorrecta/ausente 401 |
+| `npm run test:classifier` | PASS, 32 comprobaciones | Contrato local; no invocó Gemini |
+| `npm run check:library:drive` | PASS | Enumeración y lectura real de Drive de solo lectura; Neon solo SELECT |
+
+Los tests Neon preservaron las huellas de las 16 tablas y no dejaron filas
+ficticias. No restablecieron secuencias: la suite de biblioteca consumió
+`auditoria_accesos_id_seq` 70→81 y `fuentes_id_fuente_seq` 21→24; la suite de
+administración consumió auditoría 81→87. Esto es el comportamiento normal de
+secuencias PostgreSQL ante `ROLLBACK`; no equivale a filas persistidas.
+
+La prueba real de Drive confirmó dos políticas en la carpeta, ambas con lectura
+y hash correctos y las versiones indicadas por Trainmex. El procedimiento interno
+también pudo leerse, pero no está en la carpeta. `fuentes` quedó en cero filas
+antes/después. No se ejecutó `test:processing` ni una llamada real a Gemini.
+Ningún documento real fue aprobado o guardado.
+
+La navegación de biblioteca fue comprobada en el navegador HTTPS privado con un
+backend documental simulado, incluido el permiso denegado, sincronización,
+borrador, aprobación de un fragmento ficticio, retiro y vista móvil. La captura
+pública no inició sesión: mostró el estado correcto «Acceso aún no configurado».
+No se probó el login del propietario real.

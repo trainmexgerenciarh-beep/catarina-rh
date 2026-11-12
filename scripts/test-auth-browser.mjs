@@ -292,6 +292,9 @@ if(process.argv.includes("--private-https-child")){
     assert.equal((await owner.request.post(base+"/api/admin/library",{headers:{origin:"https://attacker.invalid"},data:{action:"approve"}})).status(),403);
     await op.goto(base+"/panel?resource=fuentes");
     await op.getByRole("heading",{name:"Biblioteca de documentos"}).waitFor();
+    await op.getByText("Recursos registrados",{exact:true}).waitFor();
+    const libraryPayload=await op.evaluate(async()=>await(await fetch("/api/admin/library")).json());
+    assert.equal(libraryPayload.suggestedRoot.url,lib.suggestedRoot.url,"The signed-in principal receives only the configured folder suggestion");
     await op.getByRole("button",{name:"Registrar carpeta",exact:true}).first().click();
     stage="library-folder";
     await op.getByLabel("Nombre de referencia",{exact:true}).fill("Raíz ficticia UI");

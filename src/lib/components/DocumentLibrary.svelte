@@ -31,7 +31,7 @@
   let categories: string[] = [];
   let activeTab: Tab = 'Carpetas';
   let selected: DocumentRow | null = null;
-  let loading = false;
+  let loading = true;
   let loaded = false;
   let busy = false;
   let error = '';
@@ -87,6 +87,10 @@
       documents = Array.isArray(data.documents) ? data.documents : [];
       roots = Array.isArray(data.roots) ? data.roots : [];
       suggestedRoot = data.suggestedRoot;
+      if (!roots.length && !rootUrl.trim() && suggestedRoot?.url) {
+        rootUrl = suggestedRoot.url;
+        rootName = suggestedRoot.name || '';
+      }
       resources = data.resources || {};
       categories = Array.isArray(data.categories) ? data.categories : [];
       loaded = true;

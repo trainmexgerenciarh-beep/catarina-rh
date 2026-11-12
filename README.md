@@ -20,6 +20,10 @@ sesión por HTTPS como administrador. El primer login válido crea solo las dos
 cuentas iniciales si `usuarios_rh` está vacío; jamás se concede acceso por email
 solamente. No se añadieron cuentas ni fuentes reales en esta ejecución.
 WhatsApp saliente OFF; no se publicó la app.
+Verificaciones: `check`, `build`, `test:admin` (9), `test:library` (6),
+`test:auth:browser` (9), `test:integral` (9), conversación, webhook
+(200/401/401), clasificador local (32) y lectura real Drive en solo lectura.
+Gemini real no se ejecutó.
 
 ## Entrega vigente — Directorio y Sheets de prueba
 

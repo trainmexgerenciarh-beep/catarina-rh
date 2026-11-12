@@ -40,6 +40,13 @@ ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
   bootstrap se verifica con fixtures dentro de ROLLBACK; navegador HTTPS usa
   cuentas ficticias y API simulada. No se importaron colaboradores ni se exportaron
   tickets. WhatsApp OFF; sin deployment, cron externo, Meta o cambios de Secrets.
+- PASS: `check` 0 errores/0 avisos, `build`, `test:admin` 9 grupos,
+  `test:library` 6, `test:auth:browser` 9, `test:integral` 9,
+  `test:conversation`, `test:webhook` (200/401/401), `test:classifier` local 32,
+  `check:library:drive`. `test:processing` y Gemini en vivo no se ejecutaron.
+- Las huellas/cuentas/fuentes quedaron sin cambios: 16 tablas, `usuarios_rh` 0,
+  `fuentes` 0, servicios 15, horarios 5. Los ROLLBACK consumieron secuencias
+  de auditoría/fuentes sin restablecerlas; no son filas persistidas.
 
 Detalles y siguiente paso de Trainmex:
 [Activación de administración y biblioteca](ACTIVACION_ADMIN_BIBLIOTECA.md).
