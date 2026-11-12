@@ -269,7 +269,8 @@ if(process.argv.includes("--private-https-child")){
     await op.unroute("**/api/admin/library");
     const pub="Para solicitar vacaciones de prueba, presenta tu solicitud a Recursos Humanos.";
     let bodyText=pub+"\n\nInstrucciones ficticias restringidas a RH, nunca publicadas.",forbiddenRoot=true,approvals=0;
-    const lib={documents:[],roots:[],categories:["Vacaciones"],resources:{directoryId:"syntheticDirectory001",exportId:"syntheticExportSheet01"},principal:true};
+    const lib={documents:[],roots:[],suggestedRoot:{name:"Carpeta de políticas y procedimientos",url:"https://drive.google.com/drive/folders/syntheticRootBrowser001"},
+      categories:["Vacaciones"],resources:{directoryId:"syntheticDirectory001",exportId:"syntheticExportSheet01"},principal:true};
     await op.route("**/api/admin/library",async route=>{
       if(route.request().method()==="GET")return route.fulfill({json:lib});
       const d=route.request().postDataJSON();
@@ -294,7 +295,7 @@ if(process.argv.includes("--private-https-child")){
     await op.getByRole("button",{name:"Registrar carpeta",exact:true}).first().click();
     stage="library-folder";
     await op.getByLabel("Nombre de referencia",{exact:true}).fill("Raíz ficticia UI");
-    await op.getByLabel("Enlace Drive",{exact:true}).fill("https://drive.google.com/drive/folders/syntheticRootBrowser001");
+    assert.equal(await op.getByLabel("Enlace Drive",{exact:true}).inputValue(),lib.suggestedRoot.url);
     await op.getByRole("dialog").getByRole("button",{name:/Registrar carpeta|Guardar carpeta/}).click();
     await op.getByText(/No hay permiso de lectura de carpeta/).first().waitFor();
     forbiddenRoot=false;
@@ -317,7 +318,6 @@ if(process.argv.includes("--private-https-child")){
     op.once("dialog",d=>d.accept());await approve.click();
     assert.equal(approvals,1);
     stage="library-approved-list";
-    await op.getByRole("button",{name:"Cerrar ficha"}).click();
     await op.getByRole("tab",{name:/Aprobados/}).click();
     await op.getByRole("heading",{name:"Documento ficticio UI"}).waitFor();
     await op.setViewportSize({width:402,height:874});assert(await op.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));

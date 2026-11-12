@@ -100,7 +100,7 @@ export function createDurableConversation(deps:ReceptionDependencies,pool:pg.Poo
       let answer:Awaited<ReturnType<typeof groundedAnswer>>=null;
       if(!unsupported&&service?.categoria==="Políticas y procedimientos"&&
         !["summary","offer","booking","select","cancel","move","done"].includes(extension.phase??"")){
-        const sources=(await pool.query(`SELECT f.id_fuente::text,f.nombre,f.categoria,f.url_drive,f.version,f.vigente_desde::text,f.biblioteca
+        const sources=(await pool.query(`SELECT f.id_fuente::text,f.nombre,f.categoria,f.url_drive,f.version,f.vigente_desde::text,f.activo,f.biblioteca
           FROM public.fuentes f WHERE f.activo IS TRUE AND f.categoria IN ($1,$2)
           AND f.biblioteca->>'kind'='document' AND f.biblioteca->>'status'='APROBADO'
           AND (f.biblioteca->>'rootId' IS NULL OR EXISTS

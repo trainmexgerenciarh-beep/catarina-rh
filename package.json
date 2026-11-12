@@ -13,6 +13,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:integrations": "node scripts/check-integrations.mjs",
     "admin:bootstrap": "node scripts/admin-bootstrap.mjs",
+    "admin:bootstrap-initial": "node scripts/admin-bootstrap.mjs --initial-pair",
     "admin:activate": "node scripts/activate-admin-access.mjs",
     "test:admin": "node scripts/test-admin-access.mjs",
     "cron:prepare": "node scripts/run-cron.mjs",

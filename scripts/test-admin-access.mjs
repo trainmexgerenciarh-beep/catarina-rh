@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import pg from "pg";
 import {randomBytes} from "node:crypto";
 import {neonPoolOptions} from "../src/lib/server/postgres-config.ts";
-import {OWNER_EMAIL,changeAccess,listAccess,accountAccess} from "../src/lib/server/admin-users.ts";
+import {OWNER_EMAIL,INITIAL_MANAGER_EMAIL,changeAccess,listAccess,accountAccess} from "../src/lib/server/admin-users.ts";
 import {loginWithAccess,signAccessSession,readAccessSession} from "../src/lib/server/admin-access-auth.ts";
-import {createAccount} from "./admin-bootstrap.mjs";
+import {createAccount,createInitialAccounts} from "./admin-bootstrap.mjs";
 import {readDriveText} from "../src/lib/server/institutional-sources.ts";
 const p=new pg.Pool(neonPoolOptions()),c=await p.connect();
 let groups=0;const pass=s=>{groups++;console.log(s+": PASS");};
@@ -21,18 +21,37 @@ try{
  sequenceBefore=(await c.query("SELECT last_value::text FROM pg_sequences WHERE schemaname='public' AND sequencename='auditoria_accesos_id_seq'")).rows[0]?.last_value;
  assert.equal((await c.query("SELECT count(*)::int n FROM usuarios_rh")).rows[0].n,0,"Never test over existing accounts");
  await c.query("BEGIN");await c.query("SET LOCAL statement_timeout='10s'");
- // Fixture metadata exists ONLY inside rollback. No credentials in PostgreSQL.
- await c.query("INSERT INTO usuarios_rh(email,role) VALUES($1,'gerente')",[OWNER_EMAIL]);
- const owner={email:OWNER_EMAIL,role:"gerente"},manager={email:"fixture-manager@example.invalid",role:"generalista"};
+  const owner={email:OWNER_EMAIL,role:"gerente"},manager={email:INITIAL_MANAGER_EMAIL,role:"generalista"};
  const pool={query:(...a)=>c.query(...a),connect:async()=>({
   query:(sql,args)=>c.query(sql==="BEGIN"?"SAVEPOINT access_case":sql==="COMMIT"?"RELEASE SAVEPOINT access_case":sql==="ROLLBACK"?"ROLLBACK TO SAVEPOINT access_case":sql,args),
   release(){}
  })};
+  const ownerPassword=randomBytes(24).toString("base64url"),managerPassword=randomBytes(24).toString("base64url");
+  const [ownerAccount,managerAccount]=createInitialAccounts(ownerPassword,managerPassword);
+  assert.equal(ownerAccount.email,OWNER_EMAIL);assert.equal(ownerAccount.role,"gerente");
+  assert.equal(managerAccount.email,INITIAL_MANAGER_EMAIL);assert.equal(managerAccount.role,"generalista");
+  assert.notEqual(ownerAccount.hash,managerAccount.hash);
+  assert.throws(()=>createInitialAccounts("same-private-password","same-private-password"),/PASSWORDS_MUST_BE_DIFFERENT/);
+  process.env.SESSION_SECRET=randomBytes(32).toString("hex");
+  process.env.RH_ADMIN_ACCOUNTS=JSON.stringify([ownerAccount,managerAccount]);
+  assert.equal(await loginWithAccess(manager.email,managerPassword,pool),null);
+  assert.equal((await c.query("SELECT count(*)::int n FROM usuarios_rh")).rows[0].n,0,"A manager cannot trigger initial bootstrap");
+  process.env.RH_ADMIN_ACCOUNTS=JSON.stringify([...JSON.parse(process.env.RH_ADMIN_ACCOUNTS),createAccount("extra@example.invalid","generalista",randomBytes(24).toString("base64url"))]);
+  assert.equal(await loginWithAccess(owner.email,ownerPassword,pool),null);
+  assert.equal((await c.query("SELECT count(*)::int n FROM usuarios_rh")).rows[0].n,0,"Unexpected accounts must not bootstrap");
+  process.env.RH_ADMIN_ACCOUNTS=JSON.stringify([ownerAccount,managerAccount]);
+  assert.equal(await loginWithAccess(owner.email,"invalid-password",pool),null);
+  assert.equal((await c.query("SELECT count(*)::int n FROM usuarios_rh")).rows[0].n,0,"An invalid password must not bootstrap");
+  process.env.RH_ADMIN_ACCOUNTS=JSON.stringify([ownerAccount,managerAccount]);
+  assert.equal(await loginWithAccess(owner.email,ownerPassword,pool).then(x=>x?.role), "gerente");
+  assert.equal((await c.query("SELECT count(*)::int n FROM usuarios_rh")).rows[0].n,2);
+  assert.equal(await loginWithAccess(owner.email,ownerPassword,pool).then(x=>x?.role),"gerente","Lost login response remains safely retryable");
+  assert.equal(await loginWithAccess(manager.email,managerPassword,pool).then(x=>x?.role),"generalista");
+  assert.equal((await accountAccess(pool,manager.email)).activo,true);
+  pass("Primer acceso: solo credencial privada válida del administrador con el par exacto crea las dos cuentas; reintento no duplica");
  await assert.rejects(()=>listAccess(pool,manager));
  await assert.rejects(()=>changeAccess(pool,manager,{action:"add",email:"intruder@example.invalid"}));
  pass("Servidor deniega listado y cambios a gestores");
- await changeAccess(pool,owner,{action:"add",email:manager.email,role:"generalista"});
- assert.equal((await accountAccess(pool,manager.email)).activo,true);
  for(const action of ["edit","deactivate","revoke","activate"])await assert.rejects(()=>changeAccess(pool,owner,{action,email:OWNER_EMAIL,newEmail:"other@example.invalid"}));
  await assert.rejects(()=>changeAccess(pool,owner,{action:"edit",email:manager.email,newEmail:OWNER_EMAIL}));
  await assert.rejects(()=>changeAccess(pool,owner,{action:"edit",email:manager.email,role:"gerente"}));

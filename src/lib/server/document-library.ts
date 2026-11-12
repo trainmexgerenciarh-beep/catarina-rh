@@ -19,7 +19,9 @@ export async function libraryView(pool:pg.Pool,actor:Admin){
   const documents=all.filter(r=>!r.biblioteca||r.biblioteca.kind==="document").map(r=>r.biblioteca?r:
     {...r,biblioteca:{v:1,kind:"document",driveId:"",status:"PENDIENTE_REVISION",type:"PROCEDIMIENTO_INTERNO",
       reason:"Fuente anterior sin aprobación delimitada; requiere revisión."}});
-  return {documents,roots:all.filter(r=>r.biblioteca?.kind==="root"),
+  const roots=all.filter(r=>r.biblioteca?.kind==="root");
+  return {documents,roots,
+    suggestedRoot:isOwner(actor)&&!roots.length?{name:"Carpeta de políticas y procedimientos",url:"https://drive.google.com/drive/folders/1rdxsBE2Pd_K3T0Bl8yPOCWpsTQfrsDRK"}:undefined,
     resources:await getProjectResources(pool),categories:(await pool.query(`SELECT categoria FROM servicios WHERE activo
       UNION SELECT subcategoria AS categoria FROM servicios WHERE activo AND categoria='Políticas y procedimientos' ORDER BY categoria`)).rows.map(r=>r.categoria),
     principal:isOwner(actor)};

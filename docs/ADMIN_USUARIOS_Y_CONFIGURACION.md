@@ -97,24 +97,28 @@ Cuentas autorizadas, confirmadas por Trainmex:
 No se ha configurado OAuth Google ni verificado propiedad del buzón por OAuth:
 se conserva el login local seguro ya existente, no acceso por correo solamente.
 
-Procedimiento del titular, en terminal privada:
+Procedimiento vigente, en terminal privada:
 
 1. Verificar fuera del chat la identidad y asignación de ambas cuentas.
-2. Ejecutar `npm run admin:bootstrap` para cada una, introducir el correo,
-   rol y una contraseña única de al menos 12 caracteres elegida privadamente.
-   No incluir credenciales en comandos, chat, Git, capturas ni documentación.
-   El asistente usa entrada oculta y genera archivo ignorado con salt/hash
-   scrypt, permisos 0600; no guarda la contraseña.
-3. Reunir ambos objetos en **un arreglo JSON privado**, preservando los hashes;
-   guardarlo personalmente como Secret **RH_ADMIN_ACCOUNTS**.
-   `SESSION_SECRET` debe seguir presente y privado; no sustituirlo por un ejemplo.
-   El agente no escribió ningún Secret.
-4. Ejecutar `npm run admin:activate -- --verified-private-config`.
-   Comprueba exactamente los dos correos/roles y configuración privada válida;
-   solo permite bootstrap con tabla vacía y registra metadatos/auditoría en
-   transacción. No copia hashes a Neon. Fallo de precondición revierte todo.
-5. Eliminar los archivos privados generados y reiniciar el workflow para cargar
-   la configuración. Iniciar sesión en `/login`; abrir el submenú de accesos.
+2. Ejecutar una vez `npm run admin:bootstrap-initial`. El comando solicita dos
+   contraseñas distintas con entrada oculta, fija los correos/roles autorizados
+   y genera un único arreglo JSON con hashes scrypt, en archivo ignorado de
+   permisos 0600. Nunca guarda o imprime las contraseñas.
+3. Copiar personalmente ese arreglo como Secret `RH_ADMIN_ACCOUNTS`. No incluir
+   su contenido en el chat, comandos, logs, Git ni capturas. `SESSION_SECRET` ya
+   está presente y no se cambia.
+4. Reiniciar **Start application** y el principal inicia sesión por HTTPS en
+   `/login` con su contraseña privada. Solo después de verificar su contraseña,
+   el servidor crea en una transacción las dos cuentas iniciales si `usuarios_rh`
+   está vacío. El gestor no puede inicializar el sistema.
+5. Eliminar el archivo local privado. El acceso por correo sin la contraseña
+   elegida no se acepta.
+
+Si Neon ya tiene cuentas, una fila parcial, o la configuración no coincide
+exactamente, el bootstrap de primer login falla cerrado y no cambia datos. El
+comando explícito preexistente `npm run admin:activate -- --verified-private-config`
+sigue disponible únicamente para una operación manual autorizada por el titular;
+no se ejecuta automáticamente.
 
 Para agregar gestores: el principal añade la cuenta desde UI; el titular
 configura su objeto scrypt en el mismo Secret mediante el procedimiento privado

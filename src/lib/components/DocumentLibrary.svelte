@@ -16,7 +16,7 @@
     version?: string; vigente_desde?: string; biblioteca: LibraryMeta;
   };
   type RootRow = { id_fuente: string | number; nombre: string; url_drive?: string; biblioteca: { kind: 'root'; driveId?: string; enabled?: boolean; lastSync?: string; error?: string } };
-  type LibraryPayload = { documents?: DocumentRow[]; roots?: RootRow[]; resources?: { directoryId?: string; exportId?: string }; categories?: string[]; principal?: boolean };
+  type LibraryPayload = { documents?: DocumentRow[]; roots?: RootRow[]; suggestedRoot?: { name?: string; url?: string }; resources?: { directoryId?: string; exportId?: string }; categories?: string[]; principal?: boolean };
   type Tab = 'Carpetas' | 'Por revisar' | 'Aprobados' | 'Inactivos';
   const tabs: Tab[] = ['Carpetas', 'Por revisar', 'Aprobados', 'Inactivos'];
   const types: { value: DocType; label: string }[] = [
@@ -26,6 +26,7 @@
 
   let documents: DocumentRow[] = [];
   let roots: RootRow[] = [];
+  let suggestedRoot: LibraryPayload['suggestedRoot'];
   let resources: LibraryPayload['resources'] = {};
   let categories: string[] = [];
   let activeTab: Tab = 'Carpetas';
@@ -85,6 +86,7 @@
       const data = payload as LibraryPayload;
       documents = Array.isArray(data.documents) ? data.documents : [];
       roots = Array.isArray(data.roots) ? data.roots : [];
+      suggestedRoot = data.suggestedRoot;
       resources = data.resources || {};
       categories = Array.isArray(data.categories) ? data.categories : [];
       loaded = true;
@@ -317,7 +319,7 @@
 
   <aside class="security-note">
     <span class="note-mark" aria-hidden="true">!</span>
-    <div><strong>Lo interno no se publica por defecto.</strong><p>Un documento BORRADOR o PENDIENTE sigue restringido a RH. La aprobación expone únicamente los fragmentos exactos definidos, nunca el procedimiento completo.</p></div>
+    <div><strong>Lo interno no se publica por defecto.</strong><p>Un documento BORRADOR o PENDIENTE sigue restringido a RH. La aprobación expone únicamente los fragmentos exactos definidos, nunca el procedimiento completo. Las respuestas salen de fragmentos aprobados guardados en Neon; no se lee Drive en cada mensaje. Sincroniza/Revisa cambios antes de usar la biblioteca: solo así se detectan cambios, retiros o permisos revocados.</p></div>
   </aside>
 
   {#if notice}<div class="alert success" role="status">{notice}</div>{/if}
@@ -329,7 +331,7 @@
   <section class="roots-section" aria-labelledby="roots-title">
     <div class="section-head">
       <div><span class="eyebrow">FUENTES DRIVE</span><h2 id="roots-title">Carpetas conectadas</h2></div>
-      {#if principal}<div class="inline-actions"><button class="text-action" type="button" on:click={() => { resourcesDialog = true; directoryUrl = resources?.directoryId ? `https://docs.google.com/spreadsheets/d/${resources.directoryId}/edit` : ''; exportUrl = resources?.exportId ? `https://docs.google.com/spreadsheets/d/${resources.exportId}/edit` : ''; }}>Enlaces de recursos</button><button class="button secondary compact" type="button" on:click={() => { rootDialog = true; rootUrl = ''; rootName = ''; }}>Registrar carpeta</button></div>{/if}
+      {#if principal}<div class="inline-actions"><button class="text-action" type="button" on:click={() => { resourcesDialog = true; directoryUrl = resources?.directoryId ? `https://docs.google.com/spreadsheets/d/${resources.directoryId}/edit` : ''; exportUrl = resources?.exportId ? `https://docs.google.com/spreadsheets/d/${resources.exportId}/edit` : ''; }}>Enlaces de recursos</button><button class="button secondary compact" type="button" on:click={() => { rootDialog = true; rootUrl = roots[0]?.url_drive || suggestedRoot?.url || ''; rootName = roots[0]?.nombre || suggestedRoot?.name || ''; }} disabled={loading || busy}>Registrar carpeta</button></div>{/if}
     </div>
     {#if loading && !loaded}
       <div class="root-skeleton"><i></i><i></i></div>
@@ -347,7 +349,7 @@
         {/each}
       </div>
     {:else}
-      <div class="incomplete-state"><span class="empty-mark">RH</span><div><strong>No hay carpetas registradas.</strong><p>La persona responsable de RH puede incorporar la carpeta institucional. No se ha precargado ningún ID.</p></div>{#if principal}<button class="button secondary compact" type="button" on:click={() => { rootDialog = true; rootUrl = ''; rootName = ''; }}>Registrar carpeta</button>{/if}</div>
+      <div class="incomplete-state"><span class="empty-mark">RH</span><div><strong>No hay carpetas registradas.</strong><p>La carpeta institucional ya proporcionada se precarga al registrarla. La lectura se comprueba antes de guardar.</p></div>{#if principal}<button class="button secondary compact" type="button" on:click={() => { rootDialog = true; rootUrl = suggestedRoot?.url || ''; rootName = suggestedRoot?.name || ''; }} disabled={loading || busy}>Registrar carpeta</button>{/if}</div>
     {/if}
     {#if resources?.directoryId || resources?.exportId}
       <div class="resource-links"><span>Recursos registrados</span><span>Directorio: {resources.directoryId ? 'configurado' : 'pendiente'}</span><span>Exportación: {resources.exportId ? 'configurada' : 'pendiente'}</span></div>

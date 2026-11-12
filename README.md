@@ -3,6 +3,24 @@
 Aplicación existente de recepción y administración de Recursos Humanos de Trainmex.
 SvelteKit + TypeScript, Neon PostgreSQL y SDK oficial de Gemini.
 
+## Biblioteca documental y acceso seguro del titular
+
+**[Estado, verificación de la carpeta y paso privado de activación](docs/ACTIVACION_ADMIN_BIBLIOTECA.md).**
+La carpeta institucional ya se verificó con lectura real de Drive; el panel
+precarga ese enlace solo para el administrador principal cuando registra la
+primera carpeta. La sincronización presenta los documentos como BORRADOR. Solo
+la aprobación expresa de RH publica fragmentos exactos; las respuestas consultan
+esos fragmentos en Neon, no Drive en cada mensaje. Los cambios y permisos
+revocados se detectan al sincronizar; no hay vigilancia automática.
+
+`RH_ADMIN_ACCOUNTS` sigue sin configurarse. **Paso del titular:** en una terminal
+privada ejecutar `npm run admin:bootstrap-initial`, guardar personalmente el
+archivo privado generado en Secrets como `RH_ADMIN_ACCOUNTS`, y luego iniciar
+sesión por HTTPS como administrador. El primer login válido crea solo las dos
+cuentas iniciales si `usuarios_rh` está vacío; jamás se concede acceso por email
+solamente. No se añadieron cuentas ni fuentes reales en esta ejecución.
+WhatsApp saliente OFF; no se publicó la app.
+
 ## Entrega vigente — Directorio y Sheets de prueba
 
 [Informe de implementación y pruebas](docs/IMPORTACION_DIRECTORIO_Y_SHEETS.md).

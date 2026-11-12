@@ -36,6 +36,16 @@ export function validateFragments(content:string,value:unknown,type:string):stri
     return libraryError("LIBRARY_INTERNAL_FULL_TEXT_FORBIDDEN");
   return fragments;
 }
+/** Defense-in-depth validation for the exact excerpts stored at approval time.
+ * The full source is intentionally not persisted or fetched by each conversation. */
+export function validatePublishedFragments(value:unknown):string[]{
+  if(!Array.isArray(value)||value.length<1||value.length>20||value.some(v=>typeof v!=="string"))
+    return libraryError("LIBRARY_EXCERPTS_REQUIRED");
+  const fragments=value.map(v=>normalizeContent(v as string));
+  if(new Set(fragments).size!==fragments.length||fragments.some(v=>v.length<20||v.length>2500)||
+    fragments.reduce((n,s)=>n+s.length,0)>12000)return libraryError("LIBRARY_EXCERPTS_REQUIRED");
+  return fragments;
+}
 export function dateField(value:unknown,optional=false){
   const s=String(value??"").trim();
   if(!s&&optional)return undefined;

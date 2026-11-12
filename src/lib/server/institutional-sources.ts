@@ -1,7 +1,7 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import {localDate} from "./agenda-time.ts";
-import {contentHash,validateFragments,type LibraryMeta} from "./library-contract.ts";
-export type Source = {id_fuente:string;nombre:string;categoria:string;url_drive:string;version:string;vigente_desde:string;biblioteca?:LibraryMeta};
+import {contentHash,validateFragments,validatePublishedFragments,type LibraryMeta} from "./library-contract.ts";
+export type Source = {id_fuente:string;nombre:string;categoria:string;url_drive:string;version:string;vigente_desde:string;activo?:boolean;biblioteca?:LibraryMeta};
 const connectors=new ReplitConnectors();
 export function driveId(url:string):string {
   const u=new URL(url);
@@ -55,20 +55,30 @@ export async function readDriveText(id:string,request:(path:string)=>Promise<Res
   return text;
 }
 const normalize=(t:string)=>t.normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase();
-/** Exact source extracts, not generated policy. Insufficient evidence routes to RH. */
-export async function groundedAnswer(question:string,service:string,sources:Source[],reader=readSource) {
+/** Answer only from the exact approved excerpts persisted in Neon. No Drive call
+ * happens in a worker conversation; an administrator's explicit sync/read detects
+ * changed or inaccessible files and disables the old approval until reviewed. */
+export async function groundedAnswer(question:string,service:string,sources:Source[],_reader?:typeof readSource) {
   const words=[...new Set(normalize(question+" "+service).match(/[a-z]{5,}/g)??[])].filter(w=>!["quiero","necesito","sobre","puedo","cuales","tengo","para","saber"].includes(w));
   const candidates:{source:Source;excerpt:string;score:number}[]=[];
   for(const source of sources) {
     if(!source.version||!source.vigente_desde||source.vigente_desde.slice(0,10)>localDate(Date.now()))continue;
     try{
-      const content=await reader(source),fragments=authorizedFragments(source,content);
-      if(!fragments)continue;
+      const b=source.biblioteca,a=b?.approval;
+      if(b?.kind!=="document"||b.status!=="APROBADO"||!source.activo||b.error||!a||
+        source.activo!==true||!a.actor||!Number.isFinite(Date.parse(a.at))||!a.scope?.trim()||a.hash!==b.hash||
+        !/^[a-f0-9]{64}$/.test(a.hash)||source.version!==a.version||
+        source.vigente_desde.slice(0,10)!==a.validFrom||a.validFrom>localDate(Date.now())||
+        a.validUntil&&a.validUntil<localDate(Date.now())||b.type!=="POLITICA/PREGUNTAS_TRABAJADOR"||
+        driveId(source.url_drive)!==b.driveId)continue;
+      // The exact excerpts were checked against a stable Drive read before approval.
+      // Revalidate their bounded shape here, without fetching or exposing full source.
+      const fragments=validatePublishedFragments(a.fragments);
       for(const p of fragments.filter(x=>x.length>=20&&x.length<=2500)) {
         const n=normalize(p),score=words.filter(w=>n.includes(w)).length;
         if(score>=Math.min(3,Math.max(2,words.length)))candidates.push({source,excerpt:p,score});
       }
-    }catch{/* Explicitly missing evidence, never invented policy or a fabricated connector success. */}
+    }catch{/* Explicitly missing/invalid evidence; never invent a policy response. */}
   }
   candidates.sort((a,b)=>b.score-a.score);
   // Multiple different qualifying extracts can conflict or require contextual

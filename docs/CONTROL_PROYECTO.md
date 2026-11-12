@@ -6,6 +6,46 @@ del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
+## Activación segura de biblioteca y administrador — 12 de noviembre de 2026
+
+**CÓDIGO Y PRUEBAS LISTOS / ACTIVACIÓN DEL TITULAR PENDIENTE.**
+
+- Estado real de solo lectura: Neon mantiene 16 tablas, 15 servicios activos en
+  3 categorías y 5 horarios; `fuentes` no tiene carpetas/documentos y `usuarios_rh`
+  no tiene cuentas. No se ejecutó DDL ni se crearon registros persistentes.
+- `RH_ADMIN_ACCOUNTS` está AUSENTE; `SESSION_SECRET` y `DATABASE_URL` están
+  PRESENTES. No se leyó ni modificó ningún valor de Secret. Login humano real
+  no verificado.
+- Se agregó `npm run admin:bootstrap-initial`: en terminal privada genera un
+  solo archivo con hashes de las dos cuentas confirmadas, sus roles fijos y
+  contraseñas distintas elegidas por Trainmex. Al primer login con credencial
+  válida del principal, el servidor crea exactamente esas dos filas solo si
+  `usuarios_rh` está vacío; se serializa con el mismo lock de administración y
+  registra auditoría mínima. Un gestor, email sin contraseña, lista adicional,
+  tabla no vacía o filas incompatibles no activan el bootstrap.
+- La carpeta real se enumeró y leyó con el conector Google Drive: dos políticas
+  originales están en la carpeta; el procedimiento interno de vacaciones está
+  fuera de ella. El contenido completo no se incluyó en logs o documentación.
+  El lector de la aplicación confirma tipo, hash y revisión sin guardar cambios
+  en Drive.
+- El administrador ve la carpeta ya proporcionada precargada al registrarla.
+  Luego **Sincronizar / Revisar cambios** agrega Docs/PDF como borradores.
+  Ninguna política está aprobada; no se guardó root ni documento porque el
+  acceso real del administrador sigue sin configurarse.
+- La consulta de políticas ahora selecciona únicamente fragmentos y metadatos
+  aprobados que ya están en Neon; no consulta Drive por mensaje. Una sincronización
+  explícita detecta cambios, retiro y pérdida de permisos y desactiva el material
+  anterior. No hay cron/Drive watch: los cambios externos se conocen al sincronizar.
+- La prueba de lectura real no hizo escrituras en Drive. SQL de biblioteca y
+  bootstrap se verifica con fixtures dentro de ROLLBACK; navegador HTTPS usa
+  cuentas ficticias y API simulada. No se importaron colaboradores ni se exportaron
+  tickets. WhatsApp OFF; sin deployment, cron externo, Meta o cambios de Secrets.
+
+Detalles y siguiente paso de Trainmex:
+[Activación de administración y biblioteca](ACTIVACION_ADMIN_BIBLIOTECA.md).
+Histórico de biblioteca, esquema y flujos:
+[Biblioteca documental](BIBLIOTECA_DOCUMENTAL.md).
+
 ## Importador y Sheets de prueba — entrega vigente
 
 **IMPLEMENTADO Y PROBADO / CANARIA REAL LIMPIA / IMPORTACIÓN PERSONAL PENDIENTE.**

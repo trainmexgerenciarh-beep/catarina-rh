@@ -52,6 +52,8 @@ try{
   await c.query("INSERT INTO usuarios_rh(email,role) VALUES($1,'gerente'),($2,'generalista')",[owner.email,manager.email]);
   const pool={query:(...a)=>c.query(...a),connect:async()=>({release(){},query:(q,a)=>c.query(
     q==="BEGIN"?"SAVEPOINT library_case":q==="COMMIT"?"RELEASE SAVEPOINT library_case":q==="ROLLBACK"?"ROLLBACK TO SAVEPOINT library_case":q,a)})};
+  assert.equal((await libraryView(pool,owner)).suggestedRoot.url,"https://drive.google.com/drive/folders/1rdxsBE2Pd_K3T0Bl8yPOCWpsTQfrsDRK");
+  assert.equal((await libraryView(pool,manager)).suggestedRoot,undefined,"The folder link is shown only to the principal");
   await assert.rejects(()=>libraryAction(pool,manager,{action:"root-save",url:rootId},request),e=>e.code==="ACCESS_DENIED");
   denied=true;
   await assert.rejects(()=>libraryAction(pool,owner,{action:"root-save",url:rootId},request),e=>e.code==="LIBRARY_DRIVE_ACCESS");
@@ -65,17 +67,19 @@ try{
   assert.equal(await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[doc],async()=>content),null);
   assert((await libraryAction(pool,manager,{action:"manual",url:`https://docs.google.com/document/d/${docId}/edit`},request)).alreadyRegistered);
   pass("SQL Neon ROLLBACK: carpeta, alta automática BORRADOR, identidad Drive estable, nunca publicación automática");
-  const fields={id:doc.id_fuente,categoria:"Vacaciones",tipo:"PROCEDIMIENTO_INTERNO",version:"FICTICIA-1",
+  const fields={id:doc.id_fuente,categoria:"Vacaciones",tipo:"POLITICA/PREGUNTAS_TRABAJADOR",version:"FICTICIA-1",
     issuedOn:"2026-01-01",vigente_desde:"2026-01-01",scope:"Solo solicitud de vacaciones de prueba",fragments:[excerpt]};
   await libraryAction(pool,manager,{action:"propose",...fields},request);
   assert.equal((await libraryView(pool,owner)).documents[0].activo,false);
   await assert.rejects(()=>libraryAction(pool,manager,{action:"approve",...fields},request),e=>e.code==="ACCESS_DENIED");
   await assert.rejects(()=>libraryAction(pool,owner,{action:"approve",...fields,expectedHash:contentHash(content)},request),e=>e.code==="LIBRARY_EXPLICIT_APPROVAL_REQUIRED");
-  await assert.rejects(()=>libraryAction(pool,owner,{action:"approve",...fields,fragments:[content],expectedHash:contentHash(content),confirmed:true,validityVerified:true,contentReviewed:true},request),e=>e.code==="LIBRARY_INTERNAL_FULL_TEXT_FORBIDDEN");
+  await assert.rejects(()=>libraryAction(pool,owner,{action:"approve",...fields,tipo:"PROCEDIMIENTO_INTERNO",fragments:[content],expectedHash:contentHash(content),confirmed:true,validityVerified:true,contentReviewed:true},request),e=>e.code==="LIBRARY_INTERNAL_FULL_TEXT_FORBIDDEN");
   await libraryAction(pool,owner,{action:"approve",...fields,expectedHash:contentHash(content),confirmed:true,validityVerified:true,contentReviewed:true},request);
   doc=(await libraryView(pool,manager)).documents[0];
   assert.equal(doc.biblioteca.status,"APROBADO");assert.equal(doc.biblioteca.approval.actor,owner.email);
-  const answer=await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[doc],async()=>content);
+  let workerDriveReads=0;
+  const answer=await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[doc],async()=>{workerDriveReads++;throw new Error("No per-message Drive request");});
+  assert.equal(workerDriveReads,0);
   assert(answer?.text.includes(excerpt));assert(!answer.text.includes("Detalle interno"));
   assert(!answer.text.includes("/document/")&&!answer.text.includes("/file/"));
   const restarted=spawnSync(process.execPath,["--input-type=module","-e",`
@@ -94,10 +98,12 @@ try{
   pass("Aprobación delimitada/roles; reinicio Node con snapshot ficticio; contradicción, legado y contenido interno fallan seguro");
   const priorHash=doc.biblioteca.approval.hash;
   content+="\n\nContenido adicional ficticio en revisión.";revision="2";
-  assert.equal(await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[doc],async()=>content),null);
+  assert((await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[doc],async()=>content))?.text.includes(excerpt),
+    "Only the already approved Neon excerpt is used until the administrator synchronizes the changed source");
   await libraryAction(pool,owner,{action:"sync",id:root.id},request);
   doc=(await libraryView(pool,owner)).documents[0];
   assert.equal(doc.biblioteca.status,"PENDIENTE_REVISION");assert.equal(doc.activo,false);
+  assert.equal(await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[doc]),null);
   assert.equal(doc.biblioteca.approval.hash,priorHash);assert.notEqual(doc.biblioteca.hash,priorHash);
   await libraryAction(pool,owner,{action:"approve",...fields,version:"FICTICIA-2",expectedHash:contentHash(content),confirmed:true,validityVerified:true,contentReviewed:true},request);
   doc=(await libraryView({...pool},owner)).documents[0];
@@ -106,9 +112,10 @@ try{
   assert.deepEqual(JSON.parse(JSON.stringify(stored)),doc.biblioteca);
   pass("Cambio bloquea publicación, conserva aprobación previa separada; nueva revisión explícita y rehidratación sin mapas de proceso");
   denied=true;
-  assert.equal(await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[doc],async()=>{throw new Error("Denied");}),null);
   await assert.rejects(()=>libraryAction(pool,manager,{action:"read",id:doc.id_fuente},request));
-  assert.equal((await libraryView(pool,owner)).documents[0].activo,false);
+  const revoked=(await libraryView(pool,owner)).documents[0];
+  assert.equal(revoked.activo,false);
+  assert.equal(await groundedAnswer("solicitar vacaciones trabajador","Vacaciones",[revoked]),null);
   denied=false;await libraryAction(pool,owner,{action:"approve",...fields,version:"FICTICIA-2",expectedHash:contentHash(content),confirmed:true,validityVerified:true,contentReviewed:true},request);
   listingDenied=true;
   await assert.rejects(()=>libraryAction(pool,owner,{action:"sync",id:root.id},request));
@@ -130,5 +137,5 @@ try{
   console.log(JSON.stringify({all16FingerprintsEqual:true,sequencesBefore:seqBefore,sequencesAfter:seqAfter}));
   pass("Recursos configurables solo principal y ROLLBACK: las 16 tablas iguales, 15 servicios/5 horarios intactos");
   console.log(`BIBLIOTECA: ${groups} grupos PASS; SQL real solo ROLLBACK, Drive simulado, sin aprobar el documento real.`);
-}catch(e){await c.query("ROLLBACK").catch(()=>{});console.error("LIBRARY_TEST_FAIL",e.code??e.name);process.exitCode=1;}
+}catch(e){await c.query("ROLLBACK").catch(()=>{});console.error("LIBRARY_TEST_FAIL",e.code??e.name,String(e.stack??"").split("\n").slice(1,3).join(" ").replaceAll(process.cwd()+"/","").slice(0,300));process.exitCode=1;}
 finally{c.release();await p.end();}
