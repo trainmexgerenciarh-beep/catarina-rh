@@ -128,7 +128,10 @@ Los tests Neon preservaron las huellas de las 16 tablas y no dejaron filas
 ficticias. No restablecieron secuencias: la suite de biblioteca consumió
 `auditoria_accesos_id_seq` 70→81 y `fuentes_id_fuente_seq` 21→24; la suite de
 administración consumió auditoría 81→87. Esto es el comportamiento normal de
-secuencias PostgreSQL ante `ROLLBACK`; no equivale a filas persistidas.
+secuencias PostgreSQL ante `ROLLBACK`; no equivale a filas persistidas. Hubo
+intentos de prueba adicionales mientras se completaba la UI, también revertidos.
+La lectura final dejó `auditoria_accesos_id_seq` en 87 y `fuentes_id_fuente_seq`
+en 24; no se reinició ninguna secuencia.
 
 La prueba real de Drive confirmó dos políticas en la carpeta, ambas con lectura
 y hash correctos y las versiones indicadas por Trainmex. El procedimiento interno

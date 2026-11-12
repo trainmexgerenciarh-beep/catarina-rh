@@ -46,7 +46,8 @@ ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
   `check:library:drive`. `test:processing` y Gemini en vivo no se ejecutaron.
 - Las huellas/cuentas/fuentes quedaron sin cambios: 16 tablas, `usuarios_rh` 0,
   `fuentes` 0, servicios 15, horarios 5. Los ROLLBACK consumieron secuencias
-  de auditoría/fuentes sin restablecerlas; no son filas persistidas.
+  de auditoría/fuentes sin restablecerlas; no son filas persistidas. La lectura
+  final vio `auditoria_accesos_id_seq`=87 y `fuentes_id_fuente_seq`=24.
 
 Detalles y siguiente paso de Trainmex:
 [Activación de administración y biblioteca](ACTIVACION_ADMIN_BIBLIOTECA.md).
