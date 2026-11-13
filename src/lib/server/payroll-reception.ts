@@ -120,7 +120,7 @@ export function createPayrollReception(
     if (draft.candidate) return answer("payroll_friday_candidate",
       `¿Te refieres al viernes ${displayFriday(draft.candidate)}?`);
     if (!draft.friday) return answer("payroll_friday",
-      "¿De qué semana es el pago? Puedes decirme, por ejemplo, «el viernes pasado» o darme la fecha.");
+      "¿De qué semana fue el pago? Por ejemplo, «el viernes pasado» o «hace dos semanas». Si prefieres, dime la fecha.");
     if (draft.needsConcept) return answer("payroll_concept",
       "¿Qué concepto no coincide: premio o bono, horas extra, despensa u otro?");
     if (!draft.description) return answer("payroll_explanation",

@@ -64,7 +64,7 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   const prompt = await dateNeeded.handleMessage(phone,
     "Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.", "natural-no-date");
   assert.equal(prompt.action, "payroll_friday");
-  assert.equal(prompt.reply, "¿De qué semana es el pago? Puedes decirme, por ejemplo, «el viernes pasado» o darme la fecha.");
+  assert.equal(prompt.reply, "¿De qué semana fue el pago? Por ejemplo, «el viernes pasado» o «hace dos semanas». Si prefieres, dime la fecha.");
   assert.doesNotMatch(prompt.reply, /Hola, soy Catarina/);
   const conceptPrompt = await dateNeeded.handleMessage(phone,"06/11/2026","natural-date");
   assert.equal(conceptPrompt.action,"payroll_concept");
@@ -102,6 +102,7 @@ await test("Viernes absoluto, relativo, fecha imposible, día distinto y año am
   assert.equal(parseFriday("06/11/2026 o 13/11/2026", now).kind, "ambiguous");
   assert.deepEqual(parseFriday("viernes pasado", now), { kind: "candidate", date: "2026-11-06" });
   assert.deepEqual(parseFriday("esta semana", now), { kind: "candidate", date: "2026-11-13" });
+  assert.deepEqual(parseFriday("el pago de hace dos semanas", now), { kind: "candidate", date: "2026-10-30" });
   const repo = createMemoryTicketRepository();
   const manager = createPayrollReception(dependencies(), repo, { now: () => now });
   await manager.handleMessage(phone, "Me falta el pago semanal del viernes pasado.");
@@ -115,6 +116,11 @@ await test("Viernes absoluto, relativo, fecha imposible, día distinto y año am
   assert.equal(summary.action,"payroll_summary");
   assert.match(summary.reply, /13\/11\/2026/);
   assert.equal(repo.snapshot().length, 0);
+  const relative=createPayrollReception(dependencies(),createMemoryTicketRepository(),{now:()=>now});
+  await relative.handleMessage(phone,"Me falta el pago semanal.");
+  const twoWeeks=await relative.handleMessage(phone,"el pago de hace dos semanas");
+  assert.equal(twoWeeks.action,"payroll_friday_candidate");
+  assert.match(twoWeeks.reply,/30\/10\/2026/);
 });
 
 await test("Correcciones antes de confirmar; cancelar/menú/regresar nunca registran ni resuelven", async () => {

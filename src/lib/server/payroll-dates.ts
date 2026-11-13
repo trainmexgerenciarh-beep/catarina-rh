@@ -42,7 +42,16 @@ export function parseFriday(text: string, now: number): FridayReference {
   const today = new Date(Date.UTC(part("year"), part("month") - 1, part("day")));
   const weekday = today.getUTCDay();
   let offset: number | null = null;
-  if (/\b(?:viernes pasado|viernes anterior)\b/.test(input)) {
+  const weekCountWords: Record<string, number> = {
+    una: 1, uno: 1, un: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
+    siete: 7, ocho: 8, nueve: 9, diez: 10
+  };
+  const weeksAgo = input.match(/\bhace\s+(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+semanas?\b/);
+  if (weeksAgo) {
+    const weeks = /^\d+$/.test(weeksAgo[1]) ? Number(weeksAgo[1]) : weekCountWords[weeksAgo[1]];
+    if (!Number.isSafeInteger(weeks) || weeks < 1) return { kind: "invalid" };
+    offset = 5 - (weekday === 0 ? 7 : weekday) - weeks * 7;
+  } else if (/\b(?:viernes pasado|viernes anterior)\b/.test(input)) {
     offset = -((weekday - 5 + 7) % 7 || 7);
   } else if (/\b(?:ultimo pago|pago mas reciente|ultimo viernes)\b/.test(input)) {
     offset = -((weekday - 5 + 7) % 7);
@@ -53,6 +62,8 @@ export function parseFriday(text: string, now: number): FridayReference {
   }
   if (offset === null) return { kind: "missing" };
   today.setUTCDate(today.getUTCDate() + offset);
+  if (!Number.isFinite(today.getTime()) || today.getUTCFullYear() < 1900 || today.getUTCFullYear() > 2200)
+    return { kind: "invalid" };
   return { kind: "candidate", date: today.toISOString().slice(0, 10) };
 }
 

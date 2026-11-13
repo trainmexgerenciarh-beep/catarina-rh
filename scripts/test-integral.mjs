@@ -101,7 +101,7 @@ const pendingPolicy=await switchDemo.conversation("Tengo una duda sobre vacacion
 assert.match(pendingPolicy.reply,/¿Quieres que pase tu duda a RH/);
 const newPayroll=await switchDemo.conversation("Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.","switch-payroll");
 assert.equal(newPayroll.action,"payroll_friday");
-assert.match(newPayroll.reply,/¿De qué semana es el pago/);
+assert.match(newPayroll.reply,/¿De qué semana fue el pago/);
 assert.doesNotMatch(newPayroll.reply,/¿Confirmas registrar este resumen/);
 assert.equal(switchDemo.read("tickets").length,1,"Changing an unconfirmed topic must not create a ticket");
 pass("Una consulta nueva de nómina sale de un borrador documental pendiente y pregunta por el viernes de pago");
