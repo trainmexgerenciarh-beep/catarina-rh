@@ -40,6 +40,13 @@
   let readHash = '';
   let readBusy = false;
   let readError = '';
+  let testQuestion = '';
+  let testAnswer = '';
+  let testSource = '';
+  let testVersion = '';
+  let testDone = false;
+  let testBusy = false;
+  let testError = '';
   let docType: DocType = 'PROCEDIMIENTO_INTERNO';
   let rootDialog = false;
   let manualDialog = false;
@@ -123,6 +130,12 @@
 
   function openDocument(doc: DocumentRow) {
     selected = doc;
+    testQuestion = '';
+    testAnswer = '';
+    testSource = '';
+    testVersion = '';
+    testDone = false;
+    testError = '';
     docType = doc.biblioteca.approval
       ? doc.biblioteca.type ?? 'PROCEDIMIENTO_INTERNO'
       : /^\s*pol[ií]tica\b/i.test(doc.nombre)
@@ -138,6 +151,12 @@
     content = '';
     readHash = '';
     readError = '';
+    testQuestion = '';
+    testAnswer = '';
+    testSource = '';
+    testVersion = '';
+    testDone = false;
+    testError = '';
   }
 
   async function readDocument() {
@@ -182,6 +201,34 @@
         ? 'Política validada y activada para consultas de colaboradores.'
         : 'Documento validado para RH; no se usará en respuestas a colaboradores.';
       closeDocument();
+    }
+  }
+
+  async function previewAnswer(event: SubmitEvent) {
+    event.preventDefault();
+    if (!principal || !selected || !testQuestion.trim() || testBusy) return;
+    testBusy = true;
+    testError = '';
+    testAnswer = '';
+    testSource = '';
+    testVersion = '';
+    testDone = false;
+    try {
+      const response = await fetch('/api/admin/library', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'preview-answer', id: selected.id_fuente, question: testQuestion.trim() })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok !== true) throw new Error(payload.error || 'No pude probar la respuesta.');
+      testAnswer = typeof payload.answer === 'string' ? payload.answer : '';
+      testSource = typeof payload.sourceName === 'string' ? payload.sourceName : '';
+      testVersion = typeof payload.version === 'string' ? payload.version : '';
+      testDone = true;
+    } catch (reason) {
+      testError = reason instanceof Error ? reason.message : 'No pude probar la respuesta.';
+    } finally {
+      testBusy = false;
     }
   }
 
@@ -380,6 +427,26 @@
           {/if}
         </div>
       </div>
+      {#if principal && selected.biblioteca.status === 'APROBADO' && selected.biblioteca.type === 'POLITICA/PREGUNTAS_TRABAJADOR'}
+        <section class="answer-test" aria-labelledby="answer-test-title">
+          <span class="eyebrow">PRUEBA PRIVADA · SOLO LECTURA</span>
+          <h3 id="answer-test-title">Probar una pregunta</h3>
+          <p>Consulta las políticas aprobadas guardadas en Neon. No se guarda tu pregunta ni se envía ningún mensaje.</p>
+          <form on:submit={previewAnswer}>
+            <label class="sr-only" for="policy-test-question">Pregunta de prueba</label>
+            <input id="policy-test-question" bind:value={testQuestion} maxlength="500" required placeholder="Ej.: ¿Qué dice la política de vacaciones?" />
+            <button class="button primary" type="submit" disabled={testBusy || testQuestion.trim().length < 4}>{testBusy ? 'Buscando…' : 'Probar respuesta'}</button>
+          </form>
+          {#if testError}<p class="alert error" role="alert">{testError}</p>{/if}
+          {#if testDone}
+            {#if testAnswer}
+              <div class="answer-result" role="status"><strong>Catarina respondería:</strong><p>{testAnswer}</p><small>Fuente: {testSource}{testVersion ? ` · versión ${testVersion}` : ''}</small></div>
+            {:else}
+              <p class="answer-missing" role="status">No encontré una respuesta clara en las políticas aprobadas. No se guardó nada.</p>
+            {/if}
+          {/if}
+        </section>
+      {/if}
       {#if error}<div class="alert error" role="alert">{error}</div>{/if}
     </div>
   </div>
@@ -443,7 +510,8 @@
   .private-read,.proposal-form{margin-top:17px;padding-top:15px;border-top:1px solid #e4e7de}.private-head,.form-title{display:flex;align-items:center;justify-content:space-between;gap:12px}.private-head h3,.form-title h3{margin:5px 0 0;color:#31564a;font:500 18px 'Fraunces',serif}.private-read>p{margin:6px 0 10px;color:#839087;font-size:10px;line-height:1.5}.document-content{max-height:260px;overflow:auto;margin:8px 0;padding:14px;border:1px solid #dfe4da;border-radius:4px;background:#f4f5ef;color:#4d6356;font:11px/1.7 'DM Mono',monospace;white-space:pre-wrap;overflow-wrap:anywhere}
   .private-tag{padding:6px 8px;border:1px solid #e8dfcc;border-radius:3px;background:#fbf5e8;color:#957440;font:8px 'DM Mono',monospace;white-space:nowrap}.form-field{display:grid;gap:6px;margin:12px 0;color:#50675c;font-size:10px;font-weight:600}.form-field select{width:100%;min-height:37px;padding:8px 10px;border:1px solid #d9dfd6;border-radius:4px;background:#fffefa;color:#294b42;font-size:11px}.form-note{margin:8px 0;color:#79877e;font-size:9px;line-height:1.55}.role-note{margin-top:13px;padding:11px;border:1px solid #e9dfc9;border-radius:4px;background:#fcf7e9;color:#776a4d;font-size:10px;line-height:1.55}.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:17px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .answer-test{margin-top:17px;padding:15px 0;border-top:1px solid #e4e7de}.answer-test h3{margin:6px 0;color:#31564a;font:500 18px 'Fraunces',serif}.answer-test>p{margin:5px 0 11px;color:#79877e;font-size:10px;line-height:1.55}.answer-test form{display:flex;gap:8px}.answer-test input{flex:1;min-width:0;min-height:40px;padding:9px 11px;border:1px solid #d9dfd6;border-radius:4px;background:#fffefa;color:#294b42;font-size:11px}.answer-result,.answer-missing{margin:12px 0 0;padding:12px;border:1px solid #d9dfd6;border-radius:4px;background:#f7f8f2;color:#405c4f;font-size:11px;line-height:1.6}.answer-result>p{margin:7px 0;white-space:pre-wrap}.answer-result small{color:#718179;font-size:9px}.answer-missing{border-color:#e9dfc9;background:#fcf7e9;color:#776a4d}
   @media(max-width:850px){.root-row{grid-template-columns:40px minmax(0,1fr) auto}.root-actions{grid-column:2/-1;justify-content:flex-start}.document-row{grid-template-columns:40px minmax(0,1fr)}.doc-actions{grid-column:2;justify-content:flex-start;padding-left:0}.detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:600px){.library{padding-top:27px}.page-heading{align-items:flex-start;flex-direction:column}.heading-actions{width:100%}.heading-actions .button{flex:1}.section-head{align-items:flex-start;flex-direction:column}.inline-actions{width:100%;justify-content:space-between}.root-row{grid-template-columns:36px minmax(0,1fr);gap:9px;padding:13px}.root-row>.status-badge{grid-column:2;justify-self:start}.root-actions{grid-column:2}.incomplete-state{align-items:flex-start;flex-wrap:wrap}.incomplete-state .button{margin-left:50px}.doc-heading{gap:10px}.search{width:100%}.search input{width:100%}.tabs{overflow-x:auto}.tabs button{flex:0 0 auto;padding:9px 8px;font-size:9px}.document-row{padding:13px;gap:9px}.doc-titleline{align-items:flex-start;flex-direction:column;gap:6px}.doc-actions{gap:12px}.page-footer{flex-direction:column;line-height:1.6}.modal-card{padding:18px}.detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.modal-actions{flex-wrap:wrap}.modal-actions .button{flex:1}.private-head{align-items:flex-start}}
+  @media(max-width:600px){.library{padding-top:27px}.page-heading{align-items:flex-start;flex-direction:column}.heading-actions{width:100%}.heading-actions .button{flex:1}.section-head{align-items:flex-start;flex-direction:column}.inline-actions{width:100%;justify-content:space-between}.root-row{grid-template-columns:36px minmax(0,1fr);gap:9px;padding:13px}.root-row>.status-badge{grid-column:2;justify-self:start}.root-actions{grid-column:2}.incomplete-state{align-items:flex-start;flex-wrap:wrap}.incomplete-state .button{margin-left:50px}.doc-heading{gap:10px}.search{width:100%}.search input{width:100%}.tabs{overflow-x:auto}.tabs button{flex:0 0 auto;padding:9px 8px;font-size:9px}.document-row{padding:13px;gap:9px}.doc-titleline{align-items:flex-start;flex-direction:column;gap:6px}.doc-actions{gap:12px}.page-footer{flex-direction:column;line-height:1.6}.modal-card{padding:18px}.detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.modal-actions{flex-wrap:wrap}.modal-actions .button{flex:1}.private-head{align-items:flex-start}.answer-test form{flex-direction:column}.answer-test form .button{width:100%}}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>

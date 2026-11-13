@@ -1,7 +1,7 @@
 import type pg from "pg";
 import type {Admin} from "./admin-auth.ts";
 import {isOwner} from "./admin-users.ts";
-import {driveId} from "./institutional-sources.ts";
+import {driveId,groundedAnswer} from "./institutional-sources.ts";
 import {folderId,LIBRARY_LOCK,libraryError,splitApprovedDocument,type LibraryMeta} from "./library-contract.ts";
 import {driveMetadata,driveRequest,listLibraryTree,readLibraryDocument,type DriveRequest} from "./drive-library.ts";
 import {getProjectResources,parseSheetId} from "./project-resources.ts";
@@ -30,6 +30,46 @@ export async function libraryView(pool:pg.Pool,actor:Admin){
     suggestedRoot:isOwner(actor)&&!roots.length?{name:"Carpeta de políticas y procedimientos",url:"https://drive.google.com/drive/folders/1rdxsBE2Pd_K3T0Bl8yPOCWpsTQfrsDRK"}:undefined,
     resources:await getProjectResources(pool),
     principal:isOwner(actor)};
+}
+/** Admin-only, read-only preview of a response grounded in approved Neon text. */
+export async function previewPolicyAnswer(pool:pg.Pool,actor:Admin,input:Record<string,unknown>){
+  owner(actor);
+  const id=identifier(input.id),question=text(input.question,500);
+  if(question.length<4)libraryError("LIBRARY_INVALID_INPUT");
+  const c=await pool.connect();let begun=false;
+  try{
+    await c.query("BEGIN READ ONLY");begun=true;
+    await c.query("SET LOCAL statement_timeout='8s'");
+    const selected=(await c.query(`SELECT ${projection} FROM public.fuentes WHERE id_fuente=$1`,[id])).rows[0] as Row|undefined;
+    if(!selected)return libraryError("LIBRARY_NOT_FOUND");
+    if(!selected.activo||selected.biblioteca?.kind!=="document"||
+      selected.biblioteca.status!=="APROBADO"||selected.biblioteca.type!=="POLITICA/PREGUNTAS_TRABAJADOR"||
+      selected.biblioteca.error)libraryError("LIBRARY_TEST_SOURCE_NOT_ACTIVE");
+    const services=(await c.query(`SELECT id_servicio::text,categoria,subcategoria FROM public.servicios
+      WHERE activo IS TRUE AND categoria='Políticas y procedimientos' ORDER BY id_servicio`)).rows;
+    const fold=(value:string)=>value.normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase();
+    const topic=services.filter(s=>s.subcategoria&&fold(selected.nombre).includes(fold(s.subcategoria)))
+      .sort((a,b)=>String(b.subcategoria).length-String(a.subcategoria).length)[0];
+    if(!topic)libraryError("LIBRARY_TEST_TOPIC_UNAVAILABLE");
+    const rows=(await c.query(`SELECT f.id_fuente::text,f.nombre,f.categoria,f.url_drive,f.version,
+      f.vigente_desde::text,f.activo,f.biblioteca FROM public.fuentes f
+      WHERE f.activo IS TRUE AND f.categoria IN ($1,$2)
+      AND f.biblioteca->>'kind'='document' AND f.biblioteca->>'status'='APROBADO'
+      AND (f.biblioteca->>'rootId' IS NULL OR EXISTS
+        (SELECT 1 FROM public.fuentes root WHERE root.id_fuente::text=f.biblioteca->>'rootId'
+         AND root.biblioteca->>'kind'='root' AND root.biblioteca->>'enabled'='true'
+         AND root.biblioteca->>'error' IS NULL))
+      ORDER BY f.id_fuente LIMIT 30`,[topic.subcategoria,topic.categoria])).rows as Row[];
+    const sources=rows.map(row=>({...row,biblioteca:row.biblioteca??undefined}));
+    if(!sources.some(source=>source.id_fuente===id))libraryError("LIBRARY_TEST_SOURCE_NOT_ACTIVE");
+    const answer=await groundedAnswer(question,String(topic.subcategoria),sources);
+    await c.query("COMMIT");begun=false;
+    const source=answer?sources.find(row=>row.id_fuente===answer.sourceId):undefined;
+    return {answer:answer?.text??null,sourceName:source?.nombre??null,version:source?.version??null};
+  }catch(e){
+    if(begun)await c.query("ROLLBACK").catch(()=>{});
+    throw e;
+  }finally{c.release();}
 }
 async function transaction<T>(pool:pg.Pool,actor:Admin,work:(c:pg.PoolClient)=>Promise<T>){
   const c=await pool.connect();let begun=false,committing=false,destroy=false;

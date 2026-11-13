@@ -4,6 +4,8 @@ import {verifyLogin,readSession,signSession,sameOrigin} from "../src/lib/server/
 import {sendWhatsApp} from "../src/lib/server/whatsapp-outbound.ts";
 import {groundedAnswer,driveId} from "../src/lib/server/institutional-sources.ts";
 import {contentHash,splitApprovedDocument} from "../src/lib/server/library-contract.ts";
+import {previewPolicyAnswer} from "../src/lib/server/document-library.ts";
+import {OWNER_EMAIL} from "../src/lib/server/admin-users.ts";
 import {createDemoStore} from "../src/lib/server/demo-store.ts";
 import {startMaintenance} from "../src/lib/server/maintenance.ts";
 import {exportMonth} from "../src/lib/server/monthly-export.ts";
@@ -49,6 +51,22 @@ const permissionsPolicy={...source,id_fuente:"2",nombre:"POLÍTICA PARA LA GESTI
   biblioteca:{...source.biblioteca,driveId:"synthetic-permissions-policy"}};
 const preferred=await groundedAnswer("¿Qué dice la política de vacaciones?","Vacaciones",[permissionsPolicy,vacationPolicy]);
 assert.equal(preferred?.sourceId,"1","The service-specific policy title wins over a related policy that only mentions vacations");
+const previewSql=[];let previewConnections=0;
+const previewPool={async connect(){previewConnections++;return {async query(sql){
+  previewSql.push(String(sql));
+  if(String(sql).includes("FROM public.servicios"))return {rows:[{id_servicio:"11",categoria:"Políticas y procedimientos",subcategoria:"Vacaciones"}]};
+  if(String(sql).includes("FROM public.fuentes f"))return {rows:[permissionsPolicy,vacationPolicy]};
+  if(String(sql).includes("FROM public.fuentes WHERE id_fuente=$1"))return {rows:[vacationPolicy]};
+  return {rows:[]};
+},release(){}};}};
+const preview=await previewPolicyAnswer(previewPool,{email:OWNER_EMAIL,role:"gerente"},{id:"1",question:"¿Qué dice la política de vacaciones?"});
+assert.equal(preview.sourceName,"POLÍTICA DE VACACIONES");assert.equal(preview.version,"TEST");assert(preview.answer.includes(extract));
+assert(previewSql.some(q=>q==="BEGIN READ ONLY"));
+assert(!previewSql.some(q=>/\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i.test(q)));
+await assert.rejects(()=>previewPolicyAnswer(previewPool,{email:"manager@example.invalid",role:"generalista"},{id:"1",question:"vacaciones"}),
+  e=>e.code==="ACCESS_DENIED");
+assert.equal(previewConnections,1,"A non-owner is denied before database access");
+pass("Vista previa real de biblioteca: solo lectura, fuente/versión correctas y acceso exclusivo del administrador");
 pass("Fuentes: texto aprobado, cita/version, sin depender de fechas; permiso ausente bloqueado");
 const spacedPolicy="Regla ficticia inicial.\n \t\nRegla ficticia posterior.";
 assert.deepEqual(splitApprovedDocument(spacedPolicy),[spacedPolicy]);

@@ -2,7 +2,7 @@ import type {RequestHandler} from "@sveltejs/kit";
 import {readAccessSession} from "../../../../lib/server/admin-access-auth";
 import {sameOrigin} from "../../../../lib/server/admin-auth";
 import {getNeonPool} from "../../../../lib/server/neon-collaborators";
-import {libraryView,libraryAction} from "../../../../lib/server/document-library";
+import {libraryView,libraryAction,previewPolicyAnswer} from "../../../../lib/server/document-library";
 import {readJsonObject} from "../../../../lib/server/request-json";
 import {PersistenceError} from "../../../../lib/server/persistence-unit";
 import {isOwner} from "../../../../lib/server/admin-users";
@@ -21,6 +21,9 @@ const messages:Record<string,string>={
   LIBRARY_ROOT_DISABLED:"La carpeta está desactivada. Sus documentos no se publican.",
   LIBRARY_RESOURCE_INVALID:"Introduce el enlace o ID válido de una hoja de Google Sheets.",
   LIBRARY_RESOURCE_CONFLICT:"Directorio y exportación deben ser archivos distintos, sin configuraciones duplicadas.",
+  LIBRARY_TEST_SOURCE_NOT_ACTIVE:"Solo puedes probar políticas activas para colaboradores.",
+  LIBRARY_TEST_TOPIC_UNAVAILABLE:"No encontré un tema activo del catálogo que coincida con esta política.",
+  LIBRARY_INVALID_INPUT:"Escribe una pregunta de entre 4 y 500 caracteres.",
   COMMIT_OUTCOME_UNKNOWN:"El acuse de guardado es incierto. Recarga la biblioteca antes de repetir."
 };
 function failure(e:unknown){
@@ -41,6 +44,8 @@ export const POST:RequestHandler=async({cookies,request})=>{
     const body=await readJsonObject(request,40000);
     if(String(body.action)!=="read"&&!isOwner(a))
       return Response.json({code:"ACCESS_DENIED",error:messages.ACCESS_DENIED},{status:403,headers});
+    if(String(body.action)==="preview-answer")
+      return Response.json({ok:true,...await previewPolicyAnswer(getNeonPool(),a,body)},{headers});
     return Response.json({ok:true,...await libraryAction(getNeonPool(),a,body)},{headers});
   }
   catch(e){return failure(e);}
