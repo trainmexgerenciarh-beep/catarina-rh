@@ -355,7 +355,7 @@
     }
   }
 
-  function choicesForConversationAction(action: unknown) {
+  function choicesForConversationAction(action: unknown, reply: string) {
     if (action === 'payroll_friday') return [
       { label: 'Viernes pasado', value: 'viernes pasado' },
       { label: 'Viernes antepasado', value: 'viernes antepasado' },
@@ -365,6 +365,75 @@
       { label: 'Sí, esa fecha', value: 'sí' },
       { label: 'No, elegir otra', value: 'no' }
     ];
+    if (action === 'payroll_correct') return [
+      { label: 'Viernes de pago', value: 'viernes de pago' },
+      { label: 'Tipo de consulta', value: 'tipo de consulta' },
+      { label: 'Lo que pasó', value: 'lo que pasó' }
+    ];
+    if (['payroll_summary', 'payroll_confirm_required', 'voice_summary'].includes(String(action))) return [
+      { label: 'Confirmar', value: 'confirmo' },
+      { label: 'Corregir', value: 'corregir' },
+      { label: 'Cancelar', value: 'cancelar' }
+    ];
+    if (['payroll_no_booking', 'offer', 'policy_ticket', 'policy_missing', 'survey_attention', 'voice_consent'].includes(String(action))) return [
+      { label: 'Sí', value: 'sí' },
+      { label: 'No', value: 'no' }
+    ];
+    if (action === 'survey_resolution') return [
+      { label: 'Sí', value: 'sí' },
+      { label: 'Parcialmente', value: 'parcialmente' },
+      { label: 'No', value: 'no' }
+    ];
+    if (action === 'survey_rating') return [1, 2, 3, 4, 5].map(value => ({ label: String(value), value: String(value) }));
+    if (action === 'survey_next') {
+      if (/1 al 5|del 1 al 5/i.test(reply)) {
+        return [1, 2, 3, 4, 5].map(value => ({ label: String(value), value: String(value) }));
+      }
+      return [{ label: 'Sin comentario', value: 'sin comentario' }];
+    }
+    if (action === 'survey_comment') return [{ label: 'Sin comentario', value: 'sin comentario' }];
+    if (['agenda_confirmation', 'agenda_confirmation_required', 'agenda_confirm_intent', 'remote_intent'].includes(String(action))) {
+      return reply.toLocaleLowerCase('es').includes('elegir otra')
+        ? [{ label: 'Confirmar', value: 'confirmo' }, { label: 'Elegir otra opción', value: 'no' }]
+        : [{ label: 'Confirmar', value: 'confirmo' }, { label: 'No', value: 'no' }];
+    }
+    if (action === 'agenda_existing') return [
+      { label: 'Consultar cita', value: 'consultar cita' },
+      { label: 'Cancelar cita', value: 'cancelar cita' },
+      { label: 'Reprogramar cita', value: 'reprogramar cita' }
+    ];
+    if (action === 'voice_topic') return [
+      { label: 'Quejas y denuncias', value: 'quejas y denuncias' },
+      { label: 'Ideas y mejoras', value: 'ideas y mejoras' }
+    ];
+    if (action === 'agenda_choose_existing') {
+      return [...reply.matchAll(/^[ \t]*(\d+)\.[ \t]*(.+)$/gm)].flatMap(match => [
+        { label: `Cancelar: ${match[2].trim()}`, value: `cancelar cita ${match[1]}` },
+        { label: `Reprogramar: ${match[2].trim()}`, value: `reprogramar cita ${match[1]}` }
+      ]);
+    }
+    if (action === 'agenda_choose') {
+      return [...reply.matchAll(/Cita\s+(\d+):\s*([^\n]+)/g)].flatMap(match => [
+        { label: `Cancelar: ${match[2].trim()}`, value: `cancelar cita ${match[1]}` },
+        { label: `Reprogramar: ${match[2].trim()}`, value: `reprogramar cita ${match[1]}` }
+      ]);
+    }
+    const numbered = [...reply.matchAll(/^[ \t]*(\d+)\.[ \t]*(.+)$/gm)];
+    if (numbered.length) {
+      const choices = numbered.map((match) => ({
+        label: `${match[1]}. ${match[2].trim()}`,
+        value: match[1]
+      }));
+      if (['agenda_options', 'remote_options'].includes(String(action))) {
+        choices.push({ label: 'Más horarios', value: 'más opciones' });
+      }
+      return choices;
+    }
+    if (action === 'confirmation') {
+      return /cita|reserva|reprogramar/i.test(reply)
+        ? [{ label: 'Confirmar', value: 'confirmo' }, { label: 'Elegir otra opción', value: 'no' }]
+        : [{ label: 'Confirmar', value: 'confirmo' }, { label: 'Corregir', value: 'corregir' }, { label: 'Cancelar', value: 'cancelar' }];
+    }
     return undefined;
   }
 
@@ -384,7 +453,15 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || typeof payload.reply !== 'string' || !payload.reply.trim()) throw new Error(payload.error || 'No se recibió una respuesta válida del servicio.');
-      messages = [...messages, { from: 'catarina', text: payload.reply, choices: choicesForConversationAction(payload.action) }];
+      let choices = choicesForConversationAction(payload.action, payload.reply);
+      if (!choices && ['agenda_select', 'selection'].includes(String(payload.action))) {
+        const priorOptions = [...messages].reverse().find(message =>
+          message.from === 'catarina' && message.choices?.some(choice => /^\d+$/.test(choice.value))
+        );
+        choices = priorOptions?.choices?.filter(choice => /^\d+$/.test(choice.value))
+          .map(choice => ({ ...choice }));
+      }
+      messages = [...messages, { from: 'catarina', text: payload.reply, choices }];
     } catch (reason) {
       conversationError = reason instanceof Error ? reason.message : 'No se pudo enviar el mensaje.';
     } finally {
