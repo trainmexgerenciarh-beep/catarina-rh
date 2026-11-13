@@ -3,16 +3,18 @@ name: Biblioteca documental RH
 description: Regla de Trainmex para distinguir documentación interna de fuentes aprobadas a colaboradores.
 ---
 
-Los documentos de RH guardados en Drive no son por sí solos fuente autorizada
-para responder a trabajadores. El administrador principal debe validar categoría,
-vigencia, alcance y fragmentos exactos. Un procedimiento interno no se publica
-completo ni se transforma automáticamente en política para colaboradores.
+Los documentos de RH guardados en Drive no son fuente para colaboradores hasta
+que el administrador principal los lea y active. La biblioteca debe ser sencilla:
+un clic activa la política completa; el tipo “procedimiento interno” permanece
+restringido a RH. No exigir categoría ni fechas manuales. Los cambios requieren
+sincronizar y validar de nuevo; retirar deja de usar el documento sin borrarlo.
 
-**Why:** Trainmex indicó expresamente que el procedimiento vacacional entregado
-no era una política publicada, y pidió evitar reglas inventadas o aprobación
-automática.
+**Why:** Trainmex pidió que solo el administrador publique información y que
+pueda hacerlo con una validación sencilla, sin fechas ni campos protocolarios.
+El procedimiento de vacaciones sigue siendo interno y no debe convertirse en
+política solo por estar en Drive.
 
-**How to apply:** mantener BORRADOR/PENDIENTE hasta revisión; responder solo con
-extractos explícitamente aprobados y bloquear la versión tras detectar cambios,
-retiro o pérdida de permiso. La sincronización manual implica que esos cambios
-se conocen en la siguiente revisión, no instantáneamente.
+**How to apply:** documentos nuevos o cambiados siguen privados hasta la lectura
+y activación expresa del administrador. Solo el tipo de política activada alimenta
+respuestas; el contenido aprobado se guarda en Neon y no se lee Drive por mensaje.
+Sincronización manual detecta cambios/retiros/permisos, no en tiempo real.

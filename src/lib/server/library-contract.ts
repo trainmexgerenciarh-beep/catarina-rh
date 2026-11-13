@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import {PersistenceError} from "./persistence-unit.ts";
-export type LibraryApproval={actor:string;at:string;hash:string;version:string;scope:string;fragments:string[];validFrom:string;validUntil?:string};
+export type LibraryApproval={actor:string;at:string;hash:string;version?:string;fragments:string[];scope?:string;validFrom?:string;validUntil?:string};
 export type LibraryMeta={
   v:1;kind:"document"|"root"|"resources";driveId:string;
   status?:"BORRADOR"|"PENDIENTE_REVISION"|"APROBADO"|"INACTIVO";
@@ -26,7 +26,7 @@ export function validateFragments(content:string,value:unknown,type:string):stri
   if(!Array.isArray(value)||value.length<1||value.length>20)return libraryError("LIBRARY_EXCERPTS_REQUIRED");
   const fragments=value.map(v=>normalizeContent(String(v)));
   if(new Set(fragments).size!==fragments.length||fragments.some(v=>v.length<20||v.length>2500)||
-    fragments.reduce((n,s)=>n+s.length,0)>12000)return libraryError("LIBRARY_EXCERPTS_REQUIRED");
+    fragments.reduce((n,s)=>n+s.length,0)>50000)return libraryError("LIBRARY_EXCERPTS_REQUIRED");
   const covered=new Uint8Array(text.length);
   for(const fragment of fragments){
     const at=text.indexOf(fragment);if(at<0)return libraryError("LIBRARY_EXCERPT_NOT_EXACT");
@@ -36,6 +36,38 @@ export function validateFragments(content:string,value:unknown,type:string):stri
     return libraryError("LIBRARY_INTERNAL_FULL_TEXT_FORBIDDEN");
   return fragments;
 }
+/** A principal's one-click approval publishes the complete policy as bounded
+ * exact chunks. Internal procedures remain excluded from worker answers. */
+export function splitApprovedDocument(content:string):string[]{
+  const text=normalizeContent(content);
+  if(!text||text.length>50000)return libraryError("LIBRARY_DOCUMENT_TOO_LARGE");
+  const chunks:string[]=[];
+  let current="";
+  const appendLong=(raw:string)=>{
+    let remaining=raw;
+    while(remaining.length>2500){
+      let cut=remaining.lastIndexOf(" ",2500);
+      if(cut<1200)cut=2500;
+      chunks.push(remaining.slice(0,cut).trim());
+      remaining=remaining.slice(cut).trim();
+    }
+    current=remaining;
+  };
+  for(const paragraph of text.split(/\n\s*\n/)){
+    if(paragraph.length>2500){
+      if(current)chunks.push(current);
+      current="";
+      appendLong(paragraph);
+      if(current.length===2500){chunks.push(current);current="";}
+    }else if(!current)current=paragraph;
+    else if(current.length+paragraph.length+2<=2500)current+=`\n\n${paragraph}`;
+    else {chunks.push(current);current=paragraph;}
+  }
+  if(current)chunks.push(current);
+  const unique=[...new Set(chunks)];
+  if(unique.length>20)return libraryError("LIBRARY_DOCUMENT_TOO_LARGE");
+  return validateFragments(text,unique,"POLITICA/PREGUNTAS_TRABAJADOR");
+}
 /** Defense-in-depth validation for the exact excerpts stored at approval time.
  * The full source is intentionally not persisted or fetched by each conversation. */
 export function validatePublishedFragments(value:unknown):string[]{
@@ -43,7 +75,7 @@ export function validatePublishedFragments(value:unknown):string[]{
     return libraryError("LIBRARY_EXCERPTS_REQUIRED");
   const fragments=value.map(v=>normalizeContent(v as string));
   if(new Set(fragments).size!==fragments.length||fragments.some(v=>v.length<20||v.length>2500)||
-    fragments.reduce((n,s)=>n+s.length,0)>12000)return libraryError("LIBRARY_EXCERPTS_REQUIRED");
+    fragments.reduce((n,s)=>n+s.length,0)>50000)return libraryError("LIBRARY_EXCERPTS_REQUIRED");
   return fragments;
 }
 export function dateField(value:unknown,optional=false){

@@ -15,10 +15,8 @@ const messages:Record<string,string>={
   LIBRARY_TREE_TOO_LARGE:"La carpeta supera el límite técnico de esta sincronización. Usa raíces más acotadas.",
   LIBRARY_STALE_REVIEW:"Cambió el documento o su configuración durante la revisión. Vuelve a leerlo.",
   LIBRARY_CHANGED_DURING_READ:"El archivo cambió durante la lectura. Vuelve a revisarlo.",
-  LIBRARY_EXPLICIT_APPROVAL_REQUIRED:"Lee la revisión actual y confirma contenido, alcance y vigencia antes de aprobar.",
-  LIBRARY_EXCERPTS_REQUIRED:"Selecciona de 1 a 20 fragmentos exactos, de 20 a 2500 caracteres, máximo 12000 en total.",
-  LIBRARY_EXCERPT_NOT_EXACT:"Un fragmento no coincide exactamente con el documento leído.",
-  LIBRARY_INTERNAL_FULL_TEXT_FORBIDDEN:"No se puede publicar completo un procedimiento interno. Delimita solo contenido autorizado para colaboradores.",
+  LIBRARY_EXPLICIT_APPROVAL_REQUIRED:"Vuelve a leer el documento y actívalo desde la ficha.",
+  LIBRARY_DOCUMENT_TOO_LARGE:"El documento supera el límite de lectura para esta biblioteca. Divide el archivo en partes más pequeñas.",
   LIBRARY_ROOT_DISABLED:"La carpeta está desactivada. Sus documentos no se publican.",
   LIBRARY_INVALID_DATE:"Revisa las fechas. Emisión y vigencia no son lo mismo.",
   LIBRARY_RESOURCE_INVALID:"Introduce el enlace o ID válido de una hoja de Google Sheets.",
@@ -41,7 +39,7 @@ export const POST:RequestHandler=async({cookies,request})=>{
   if(!sameOrigin(request))return Response.json({error:"Origen no autorizado"},{status:403,headers});
   try{
     const body=await readJsonObject(request,40000);
-    if(!["manual","read","propose"].includes(String(body.action))&&!isOwner(a))
+    if(String(body.action)!=="read"&&!isOwner(a))
       return Response.json({code:"ACCESS_DENIED",error:messages.ACCESS_DENIED},{status:403,headers});
     return Response.json({ok:true,...await libraryAction(getNeonPool(),a,body)},{headers});
   }

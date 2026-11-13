@@ -1,44 +1,42 @@
 # Biblioteca documental de Catarina RH
 
-## Estado vigente — biblioteca con aprobación delimitada
+## Estado vigente — administración simplificada
 
-La carpeta institucional indicada por Trainmex se comprobó con lectura de Drive:
-contiene las políticas de vacaciones y de permisos/licencias. El procedimiento
-interno de vacaciones está fuera de esa carpeta. Esos documentos reales no se
-aprobaron ni se escribieron en Neon durante esta ejecución; no hay raíz ni
-documentos registrados en la tabla `fuentes` porque la cuenta administrativa
-todavía no está configurada.
+La carpeta institucional está conectada y sincronizada. En la revisión del 13 de
+noviembre de 2026 aparecieron dos políticas como **Borrador · privado**; no hay
+ninguna política activa para responder a colaboradores. No se aprobó contenido
+real en esta actualización.
 
-El panel precarga la carpeta autorizada **solo para la sesión del administrador**
-cuando se registra la primera raíz. Al registrar, el servidor valida que sea una
-carpeta accesible y, al sincronizar, comprueba listado completo, permisos y hash
-de Docs/PDF. Los nuevos documentos comienzan como BORRADOR; un cambio requiere
-nueva revisión y nunca publica automáticamente. La ficha permite revisar versión,
-tipo, fechas sustentadas y texto leído temporalmente. El administrador decide si
-es política apta para colaboradores y aprueba solamente fragmentos exactos y un
-alcance explícito. Los procedimientos internos no se aprueban completos ni se
-convierten automáticamente en reglas para trabajadores.
+El administrador principal abre una ficha, lee el documento en privado, elige
+**Política / preguntas de trabajador** o **Procedimiento interno** y pulsa una
+sola vez **Validar y activar**. Una política aprobada queda disponible completa
+para consultas, guardada en Neon en fragmentos exactos y acotados. Un
+procedimiento interno se puede validar para consulta administrativa, pero nunca
+se incluye en respuestas a colaboradores. Generalistas pueden consultar la
+biblioteca, no agregar, retirar ni activar documentos.
 
-**Consulta en producción:** Catarina usa solo los fragmentos exactos con
-aprobación vigente y estado activo que ya están almacenados en Neon. No lee Drive
-ni conserva el documento completo por cada mensaje. Al usar **Sincronizar /
-Revisar cambios**, la app detecta modificación de contenido/título, archivo
-retirado o pérdida de permiso; pone la revisión pendiente/inactiva, bloquea la
-respuesta y conserva la aprobación anterior únicamente como historial no
-publicado. La carpeta no tiene Drive watch ni sincronización automática; un cambio
-externo no puede conocerse hasta la siguiente sincronización manual. No se asignó
-una frecuencia no aprobada ni se afirma invalidación instantánea antes de ella.
+La categoría es solo una etiqueta de orden/búsqueda y se asigna automáticamente;
+no controla la respuesta. La versión se lee del documento si está indicada.
+Fechas de emisión, vencimiento y vigencia no se solicitan ni bloquean la
+aprobación. El contenido se cita con el título y, cuando existe, la versión.
 
-**Activación pendiente:** `RH_ADMIN_ACCOUNTS` no está configurado; el administrador
-no puede iniciar sesión y registrar/sincronizar la carpeta. No hay cuentas reales,
-raíces, políticas aprobadas ni datos nuevos en Neon. Consulte
-[Activación de administración y biblioteca](ACTIVACION_ADMIN_BIBLIOTECA.md).
+**Reemplazar o retirar:** al editar un archivo, sincroniza la carpeta; el cambio
+lo devuelve a revisión y deja de usarse hasta que el administrador lo valide de
+nuevo. **Retirar** conserva el registro pero impide usarlo; no borra ni modifica
+el archivo de Drive. Si el documento desaparece o se pierde permiso, la siguiente
+sincronización lo bloquea. No existe vigilancia automática de Drive.
 
-## Cambio mínimo autorizado y control de datos
+La sincronización y lectura del contenido suceden con la identidad conectada a
+Drive. No se lee Drive en cada mensaje. No se necesita migración: el flujo usa
+la columna `fuentes.biblioteca` existente y deja `vigente_desde` vacío en nuevas
+aprobaciones.
 
-El esquema de `fuentes` solo tiene enlace, título, categoría, versión, fecha y
-activo; no representa carpetas, revisión/hash, aprobación de fragmentos o cambios
-pendientes. Se conserva la tabla y se agrega **una columna nullable JSONB**:
+## Antecedente: migración mínima de la biblioteca
+
+En la iteración inicial el esquema de `fuentes` solo tenía enlace, título,
+categoría, versión, fecha y activo; no representaba carpetas, revisión/hash,
+aprobación o cambios pendientes. Se conservó la tabla y se agregó **una columna
+nullable JSONB**:
 
 ```sql
 BEGIN;
@@ -48,7 +46,8 @@ ALTER TABLE public.fuentes ADD COLUMN biblioteca JSONB;
 COMMIT;
 ```
 
-Sin tablas, índices, triggers ni modificación de las columnas anteriores.
+Esta migración histórica ya está aplicada. No se añaden tablas, índices, triggers
+ni modificaciones de otras columnas en la simplificación actual.
 Sin rellenar o publicar filas preexistentes. El script explícito
 `scripts/migrate-document-library.mjs --authorized-library-column` verifica
 compatibilidad, preserva huellas de las 16 tablas (excluyendo la nueva columna
@@ -59,9 +58,8 @@ No ejecutar DROP ni eliminar aprobaciones/configuración; cualquier reversión
 destructiva posterior necesita autorización. Las filas antiguas sin contrato de
 aprobación delimitada no se usan automáticamente para responder a trabajadores.
 
-El documento real de vacaciones es ejemplo de **procedimiento interno borrador**.
-Su emisión no demuestra vigencia ni autorización para colaboradores. No se
-aprueba durante el desarrollo ni se guarda su contenido completo en el repositorio.
+El procedimiento de vacaciones sigue clasificado como **procedimiento interno**;
+su nombre/versionado no lo convierte en política para colaboradores.
 
 El detalle de implementación, pruebas y límites de este corte se documenta en
 [Activación de administración y biblioteca](ACTIVACION_ADMIN_BIBLIOTECA.md).

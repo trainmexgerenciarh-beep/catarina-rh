@@ -1,7 +1,6 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
-import {localDate} from "./agenda-time.ts";
 import {contentHash,validateFragments,validatePublishedFragments,type LibraryMeta} from "./library-contract.ts";
-export type Source = {id_fuente:string;nombre:string;categoria:string;url_drive:string;version:string;vigente_desde:string;activo?:boolean;biblioteca?:LibraryMeta};
+export type Source = {id_fuente:string;nombre:string;categoria:string;url_drive:string;version?:string|null;vigente_desde?:string|null;activo?:boolean;biblioteca?:LibraryMeta};
 const connectors=new ReplitConnectors();
 export function driveId(url:string):string {
   const u=new URL(url);
@@ -17,10 +16,9 @@ export async function readSource(source:Source):Promise<string> {
 /** Revalidate live permission/content; never feed the whole internal procedure
  * to the worker answer path. Old active=true alone is not publication consent. */
 export function authorizedFragments(source:Source,content:string):string[]|null{
-  const b=source.biblioteca,a=b?.approval,today=localDate(Date.now());
-  if(b?.kind!=="document"||b.status!=="APROBADO"||!a||b.error||!a.actor||!a.at||!a.scope||
-    a.hash!==b.hash||a.hash!==contentHash(content)||source.version!==a.version||
-    source.vigente_desde?.slice(0,10)!==a.validFrom||a.validFrom>today||a.validUntil&&a.validUntil<today||
+  const b=source.biblioteca,a=b?.approval;
+  if(b?.kind!=="document"||b.status!=="APROBADO"||!a||b.error||!a.actor||!a.at||
+    a.hash!==b.hash||a.hash!==contentHash(content)||a.version&&source.version!==a.version||
     !Array.isArray(a.fragments)||!a.fragments.length||a.fragments.some(f=>!content.replace(/\r\n?/g,"\n").includes(f)))return null;
   try{
     if(driveId(source.url_drive)!==b.driveId)return null;
@@ -55,21 +53,19 @@ export async function readDriveText(id:string,request:(path:string)=>Promise<Res
   return text;
 }
 const normalize=(t:string)=>t.normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase();
-/** Answer only from the exact approved excerpts persisted in Neon. No Drive call
+/** Answer only from approved policy text persisted in Neon. No Drive call
  * happens in a worker conversation; an administrator's explicit sync/read detects
  * changed or inaccessible files and disables the old approval until reviewed. */
 export async function groundedAnswer(question:string,service:string,sources:Source[],_reader?:typeof readSource) {
   const words=[...new Set(normalize(question+" "+service).match(/[a-z]{5,}/g)??[])].filter(w=>!["quiero","necesito","sobre","puedo","cuales","tengo","para","saber"].includes(w));
   const candidates:{source:Source;excerpt:string;score:number}[]=[];
   for(const source of sources) {
-    if(!source.version||!source.vigente_desde||source.vigente_desde.slice(0,10)>localDate(Date.now()))continue;
     try{
       const b=source.biblioteca,a=b?.approval;
       if(b?.kind!=="document"||b.status!=="APROBADO"||!source.activo||b.error||!a||
-        source.activo!==true||!a.actor||!Number.isFinite(Date.parse(a.at))||!a.scope?.trim()||a.hash!==b.hash||
-        !/^[a-f0-9]{64}$/.test(a.hash)||source.version!==a.version||
-        source.vigente_desde.slice(0,10)!==a.validFrom||a.validFrom>localDate(Date.now())||
-        a.validUntil&&a.validUntil<localDate(Date.now())||b.type!=="POLITICA/PREGUNTAS_TRABAJADOR"||
+        source.activo!==true||!a.actor||!Number.isFinite(Date.parse(a.at))||a.hash!==b.hash||
+        !/^[a-f0-9]{64}$/.test(a.hash)||a.version&&source.version!==a.version||
+        b.type!=="POLITICA/PREGUNTAS_TRABAJADOR"||
         driveId(source.url_drive)!==b.driveId)continue;
       // The exact excerpts were checked against a stable Drive read before approval.
       // Revalidate their bounded shape here, without fetching or exposing full source.
@@ -85,6 +81,6 @@ export async function groundedAnswer(question:string,service:string,sources:Sour
   // interpretation. Do not guess precedence; route to RH instead.
   if(new Set(candidates.map(c=>normalize(c.excerpt).trim())).size>1)return null;
   const best=candidates[0];
-  return best?{text:`La fuente institucional indica:\n«${best.excerpt}»\nFuente: ${best.source.nombre}, versión ${best.source.version}, vigente desde ${best.source.vigente_desde.slice(0,10)}.\nSi este extracto no responde tu caso, indica «necesito atención de RH».`,sourceId:best.source.id_fuente,
+  return best?{text:`La fuente institucional indica:\n«${best.excerpt}»\nFuente: ${best.source.nombre}${best.source.version?`, versión ${best.source.version}`:""}.\nSi este extracto no responde tu caso, indica «necesito atención de RH».`,sourceId:best.source.id_fuente,
     proof:contentHash(JSON.stringify(best.source.biblioteca))}:null;
 }

@@ -5,4 +5,4 @@
 - [Survey delivery safety](survey-delivery-safety.md) — lease expiry cannot prove no external send; fictitious acknowledgments must never become real delivery.
 - [Administración RH](administracion-rh.md) — Trainmex exige un administrador principal único; los gestores no pueden promoverse ni transferirlo.
 - [Importación de directorio](directory-import-safety.md) — confirmar altas en UI, no sobrescribir registros ni desactivar ausentes; centro no se inventa.
-- [Biblioteca documental RH](biblioteca-documental-rh.md) — documentos internos no son políticas para trabajadores; publicación requiere aprobación principal de fragmentos exactos.
+- [Biblioteca documental RH](biblioteca-documental-rh.md) — aprobación simple de políticas completas por el principal; procedimientos siguen restringidos a RH.

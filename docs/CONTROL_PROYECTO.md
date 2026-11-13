@@ -1,12 +1,40 @@
 # Catarina RH — registro técnico para Gestión del Proyecto
 
-Fecha de corte: 11 de noviembre de 2026.
+Fecha de corte: 13 de noviembre de 2026.
 Fuente funcional: Maestro v1.2, Plano base v1.1/adenda 1.2 y Gestión del Proyecto
 del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 
+## Biblioteca simple de políticas — 13 de noviembre de 2026
+
+**IMPLEMENTADA Y PROBADA CON FIXTURES / DOCUMENTOS REALES SIGUEN EN BORRADOR.**
+
+- El titular pidió administrar la biblioteca con menos campos y una validación
+  sencilla. La carpeta Drive ya sincronizada muestra dos políticas como borrador;
+  ninguna se activó ni se publicó en esta actualización.
+- La ficha ya no exige categoría, alcance, fechas ni pegar fragmentos. Tras leer
+  el archivo, el administrador principal elige el tipo y activa con un clic.
+  La versión se extrae del contenido cuando aparece; la categoría se asigna como
+  etiqueta general para organizar, no decide respuestas.
+- Una política activada se guarda en Neon como fragmentos automáticos, acotados
+  y exactos. Un procedimiento interno se puede validar para RH pero no se usa
+  para responder a colaboradores. Sincronizar un cambio vuelve a ponerlo pendiente;
+  **Retirar** lo saca de uso sin borrar Drive.
+- Las fechas `emitido`, `vence` y `vigente_desde` ya no condicionan aprobación ni
+  respuesta. No se cambió el esquema: se usa `fuentes.biblioteca` existente.
+- Pruebas PASS: `test:library` 6 grupos, `test:integral` 9 grupos,
+  `check` 0 errores/0 avisos y `build`. SQL Neon solo en transacción con
+  `ROLLBACK`; las huellas de las 16 tablas iguales, servicios y horarios intactos.
+  Las secuencias auditoría 105→114 y fuentes 31→34 consumieron valores dentro
+  del rollback y no se restablecieron.
+- No se aprobó ninguna política real, no se enviaron mensajes, no se publicó
+  despliegue y no se modificaron Drive ni Secrets.
+
 ## Activación segura de biblioteca y administrador — 12 de noviembre de 2026
+
+> Antecedente histórico. La cuenta y la carpeta quedaron configuradas después de
+> este corte; el estado actual se describe en la sección superior.
 
 **CÓDIGO Y PRUEBAS LISTOS / ACTIVACIÓN DEL TITULAR PENDIENTE.**
 

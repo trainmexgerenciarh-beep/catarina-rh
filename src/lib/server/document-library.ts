@@ -2,7 +2,7 @@ import type pg from "pg";
 import type {Admin} from "./admin-auth.ts";
 import {isOwner} from "./admin-users.ts";
 import {driveId} from "./institutional-sources.ts";
-import {dateField,folderId,LIBRARY_LOCK,libraryError,validateFragments,type LibraryMeta} from "./library-contract.ts";
+import {folderId,LIBRARY_LOCK,libraryError,splitApprovedDocument,type LibraryMeta} from "./library-contract.ts";
 import {driveMetadata,driveRequest,listLibraryTree,readLibraryDocument,type DriveRequest} from "./drive-library.ts";
 import {getProjectResources,parseSheetId} from "./project-resources.ts";
 type Row={id_fuente:string;nombre:string;categoria:string;url_drive:string;version:string|null;vigente_desde:string|null;activo:boolean;biblioteca:LibraryMeta|null};
@@ -13,6 +13,12 @@ const list=async(c:Pick<pg.Pool,"query">)=>(
 const identifier=(value:unknown)=>{const s=String(value??"");if(!/^[1-9]\d*$/.test(s))return libraryError("LIBRARY_INVALID_ID");return s;};
 const text=(v:unknown,max=180)=>{const s=String(v??"").trim();if(!s||s.length>max)return libraryError("LIBRARY_INVALID_INPUT");return s;};
 function owner(actor:Admin){if(!isOwner(actor))libraryError("ACCESS_DENIED");}
+const documentType=(name:string):LibraryMeta["type"]=>/^\s*pol[ií]tica\b/i.test(name)
+  ?"POLITICA/PREGUNTAS_TRABAJADOR":"PROCEDIMIENTO_INTERNO";
+const documentVersion=(content:string)=>{
+  const match=content.match(/\bversi[oó]n\s*[:#-]?\s*([a-z0-9][a-z0-9._/-]{0,39})/i);
+  return match?.[1]??undefined;
+};
 export async function libraryView(pool:pg.Pool,actor:Admin){
   const all=await list(pool);
   // No raw content is stored/projected. Approved or proposed excerpts only.
@@ -22,8 +28,7 @@ export async function libraryView(pool:pg.Pool,actor:Admin){
   const roots=all.filter(r=>r.biblioteca?.kind==="root");
   return {documents,roots,
     suggestedRoot:isOwner(actor)&&!roots.length?{name:"Carpeta de políticas y procedimientos",url:"https://drive.google.com/drive/folders/1rdxsBE2Pd_K3T0Bl8yPOCWpsTQfrsDRK"}:undefined,
-    resources:await getProjectResources(pool),categories:(await pool.query(`SELECT categoria FROM servicios WHERE activo
-      UNION SELECT subcategoria AS categoria FROM servicios WHERE activo AND categoria='Políticas y procedimientos' ORDER BY categoria`)).rows.map(r=>r.categoria),
+    resources:await getProjectResources(pool),
     principal:isOwner(actor)};
 }
 async function transaction<T>(pool:pg.Pool,actor:Admin,work:(c:pg.PoolClient)=>Promise<T>){
@@ -56,7 +61,7 @@ async function rowById(c:Pick<pg.Pool,"query">,id:string){
  * disable/edit, and document local revision prevents a stale read approving data. */
 export async function libraryAction(pool:pg.Pool,actor:Admin,d:Record<string,unknown>,request:DriveRequest=driveRequest){
   const action=String(d.action);
-  if(!["manual","read","propose"].includes(action))owner(actor);
+  if(action!=="read")owner(actor);
   if(action==="root-save"){
     const id=folderId(d.url),meta=await driveMetadata(id,request);
     if(meta.mimeType!=="application/vnd.google-apps.folder")libraryError("LIBRARY_INVALID_FOLDER");
@@ -91,9 +96,9 @@ export async function libraryAction(pool:pg.Pool,actor:Admin,d:Record<string,unk
       const rows=await list(c as unknown as pg.Pool);
       const existing=rows.find(r=>r.biblioteca?.kind==="document"&&r.biblioteca.driveId===id||!r.biblioteca&&r.url_drive&&safeDriveId(r.url_drive)===id);
       if(existing)return {id:existing.id_fuente,alreadyRegistered:true};
-      const b:LibraryMeta={v:1,kind:"document",driveId:id,status:"BORRADOR",type:"PROCEDIMIENTO_INTERNO",
+      const b:LibraryMeta={v:1,kind:"document",driveId:id,status:"BORRADOR",type:documentType(read.meta.name),
         hash:read.hash,revision:read.meta.version,lastRead:new Date().toISOString(),mimeType:read.meta.mimeType,revisionLocal:1};
-      const r=await c.query("INSERT INTO fuentes(nombre,url_drive,categoria,activo,biblioteca) VALUES($1,$2,'Por definir',false,$3::jsonb) RETURNING id_fuente::text",
+      const r=await c.query("INSERT INTO fuentes(nombre,url_drive,categoria,activo,biblioteca) VALUES($1,$2,'Políticas y procedimientos',false,$3::jsonb) RETURNING id_fuente::text",
         [read.meta.name,`https://drive.google.com/file/d/${id}/view`,JSON.stringify(b)]);
       await audit(c,actor,"borrador",r.rows[0].id_fuente);return {id:r.rows[0].id_fuente,status:"BORRADOR"};
     });
@@ -117,7 +122,7 @@ export async function libraryAction(pool:pg.Pool,actor:Admin,d:Record<string,unk
     await saveMeta(c,r,{...b,status:"INACTIVO",reason:"Retirada expresa por administrador."});
     await audit(c,actor,"inactiva",id);return {deactivated:true};
   });
-  if(!["read","propose","approve"].includes(action))libraryError("LIBRARY_INVALID_ACTION");
+  if(!["read","approve"].includes(action))libraryError("LIBRARY_INVALID_ACTION");
   let read;
   try{read=await readLibraryDocument(initial.biblioteca?.driveId||driveId(initial.url_drive),request);}
   catch(e){
@@ -128,7 +133,7 @@ export async function libraryAction(pool:pg.Pool,actor:Admin,d:Record<string,unk
     });throw e;
   }
   return transaction(pool,actor,async c=>{
-    const r=await rowById(c as unknown as pg.Pool,id),b=r.biblioteca??{v:1,kind:"document",driveId:read.meta.id,status:"PENDIENTE_REVISION",type:"PROCEDIMIENTO_INTERNO"};
+    const r=await rowById(c as unknown as pg.Pool,id),b=r.biblioteca??{v:1,kind:"document",driveId:read.meta.id,status:"PENDIENTE_REVISION",type:documentType(r.nombre)};
     if((r.biblioteca?.revisionLocal??0)!==(initial.biblioteca?.revisionLocal??0))libraryError("LIBRARY_STALE_REVIEW");
     const changed=b.hash!==read.hash;
     const current:LibraryMeta={...b,hash:read.hash,revision:read.meta.version,mimeType:read.meta.mimeType,
@@ -138,29 +143,25 @@ export async function libraryAction(pool:pg.Pool,actor:Admin,d:Record<string,unk
       await saveMeta(c,r,current,!changed&&!b.error&&r.activo&&b.status==="APROBADO");
       return {content:read.content,hash:read.hash};
     }
-    const type=String(d.tipo);
+    const type=String(d.tipo??b.type??documentType(r.nombre));
     if(!["PROCEDIMIENTO_INTERNO","POLITICA/PREGUNTAS_TRABAJADOR"].includes(type))libraryError("LIBRARY_INVALID_TYPE");
-    const proposed={categoria:text(d.categoria),tipo:type,version:text(d.version,80),
-      issuedOn:dateField(d.issuedOn,true),vigente_desde:dateField(d.vigente_desde),expiresOn:dateField(d.expiresOn,true),
-      scope:text(d.scope,1000),fragments:validateFragments(read.content,d.fragments,type)};
-    if(proposed.expiresOn&&proposed.expiresOn<proposed.vigente_desde!)libraryError("LIBRARY_INVALID_DATE");
-    if(action==="propose"){
-      await saveMeta(c,r,{...current,proposal:{...proposed,actor:actor.email,at:new Date().toISOString()},
-        status:changed||b.status!=="APROBADO"?"PENDIENTE_REVISION":b.status},!changed&&r.activo&&b.status==="APROBADO");
-      await audit(c,actor,"propuesta",id);return {proposed:true};
-    }
-    if(d.expectedHash!==read.hash||d.confirmed!==true||d.validityVerified!==true||d.contentReviewed!==true)
+    if(b.status==="INACTIVO")libraryError("LIBRARY_DOCUMENT_INACTIVE");
+    if(d.expectedHash!==read.hash||d.confirmed!==true)
       libraryError("LIBRARY_EXPLICIT_APPROVAL_REQUIRED");
     if(b.rootId){
       const root=await rowById(c as unknown as pg.Pool,b.rootId);
       if(!root.biblioteca?.enabled)libraryError("LIBRARY_ROOT_DISABLED");
     }
-    current.status="APROBADO";current.type=type as LibraryMeta["type"];current.issuedOn=proposed.issuedOn;current.expiresOn=proposed.expiresOn;
-    current.proposal=undefined;current.reason=undefined;
-    current.approval={actor:actor.email,at:new Date().toISOString(),hash:read.hash,version:proposed.version,
-      scope:proposed.scope,fragments:proposed.fragments,validFrom:proposed.vigente_desde!,validUntil:proposed.expiresOn};
-    await c.query("UPDATE fuentes SET categoria=$2,version=$3,vigente_desde=$4 WHERE id_fuente=$1",[id,proposed.categoria,proposed.version,proposed.vigente_desde]);
-    await saveMeta(c,r,current,true);await audit(c,actor,"aprobada",id);return {approved:true};
+    const publicPolicy=type==="POLITICA/PREGUNTAS_TRABAJADOR";
+    const fragments=publicPolicy?splitApprovedDocument(read.content):[];
+    const version=documentVersion(read.content);
+    current.status="APROBADO";current.type=type as LibraryMeta["type"];
+    current.proposal=undefined;current.reason=undefined;current.issuedOn=undefined;current.expiresOn=undefined;
+    current.approval={actor:actor.email,at:new Date().toISOString(),hash:read.hash,version,fragments};
+    await c.query("UPDATE fuentes SET categoria=$2,version=$3,vigente_desde=NULL WHERE id_fuente=$1",
+      [id,r.categoria==="Por definir"?"Políticas y procedimientos":r.categoria,version??null]);
+    await saveMeta(c,r,current,publicPolicy);await audit(c,actor,"aprobada",id);
+    return {approved:true,workerEnabled:publicPolicy,version:version??null};
   });
 }
 function safeDriveId(url:string){try{return driveId(url);}catch{return null;}}
@@ -199,12 +200,12 @@ async function syncRoot(pool:pg.Pool,actor:Admin,initial:Row,request:DriveReques
       const r=rows.find(r=>r.biblioteca?.kind==="document"&&r.biblioteca.driveId===read.driveId||!r.biblioteca&&safeDriveId(r.url_drive)===read.driveId);
       if(r?.biblioteca?.rootId&&r.biblioteca.rootId!==initial.id_fuente)continue; // Stable ID, no duplicate/ownership overwrite.
       if(!r){
-        const b:LibraryMeta={v:1,kind:"document",driveId:read.driveId,rootId:initial.id_fuente,folder:read.folder,type:"PROCEDIMIENTO_INTERNO",
+        const b:LibraryMeta={v:1,kind:"document",driveId:read.driveId,rootId:initial.id_fuente,folder:read.folder,type:documentType(read.name),
           status:"BORRADOR",hash:read.hash,revision:read.revision,mimeType:read.mimeType,error:read.error,lastRead:read.hash?new Date().toISOString():undefined,revisionLocal:1};
-        await c.query("INSERT INTO fuentes(nombre,url_drive,categoria,activo,biblioteca) VALUES($1,$2,'Por definir',false,$3::jsonb)",
+        await c.query("INSERT INTO fuentes(nombre,url_drive,categoria,activo,biblioteca) VALUES($1,$2,'Políticas y procedimientos',false,$3::jsonb)",
           [read.name,`https://drive.google.com/file/d/${read.driveId}/view`,JSON.stringify(b)]);added++;continue;
       }
-      const b=r.biblioteca??{v:1,kind:"document",driveId:read.driveId,type:"PROCEDIMIENTO_INTERNO",status:"PENDIENTE_REVISION"};
+      const b=r.biblioteca??{v:1,kind:"document",driveId:read.driveId,type:documentType(read.name),status:"PENDIENTE_REVISION"};
       const differs=b.hash!==read.hash||r.nombre!==read.name;
       const inactive=b.status==="INACTIVO";
       const status=inactive?"INACTIVO":read.error?"PENDIENTE_REVISION":differs||b.error?"PENDIENTE_REVISION":b.status;
