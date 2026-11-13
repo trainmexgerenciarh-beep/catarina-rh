@@ -91,9 +91,11 @@ export function createDurableConversation(deps:ReceptionDependencies,pool:pg.Poo
       const simple=/^(?:\d+|si|sí|no|confirmo|correcto|de acuerdo|hola|menu|menú|menu principal|menú principal|regresar|volver|cancelar|tema|viernes|fecha|explicacion|explicación)$/i;
       const extension=(claim.state.recepcion??{}) as Extension;
       const payroll=(claim.state.nomina as {draft?:{phase:string;serviceId:string}}|undefined)?.draft;
+      const canSwitchTopic=Boolean(extension.category&&extension.phase==="summary");
       const needsClassification=!simple.test(text)&&text.length>12&&
         !/^(?:consultar|cancelar|reprogramar|agendar|opciones|corregir)/i.test(text)&&
-        !payroll?.serviceId&&!(extension.phase&&["summary","consent","booking","select","cancel","move","offer"].includes(extension.phase));
+        (!payroll?.serviceId&&!(extension.phase&&["summary","consent","booking","select","cancel","move","offer"].includes(extension.phase))||
+          canSwitchTopic);
       const classification=needsClassification&&!unsupported?await deps.classifyService(text,services):
         {serviceId:null,classification:"sin clasificar" as const};
       const service=services.find(s=>s.idServicio===(extension.serviceId??classification.serviceId));

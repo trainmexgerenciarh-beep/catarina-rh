@@ -51,6 +51,8 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
     const access=await deps.lookupIdentity(phone);
     if(access.status!=="active"||!access.id)return {collaboratorStatus:access.status,classification:null,action:"access_denied",reply:"Este número no está autorizado en el directorio activo de RH."};
     const owner=access.id,s=normalizePayrollInput(text),catalog=await deps.listActiveServices();
+    const classifiedService=prepared.classification.serviceId
+      ?catalog.find(r=>r.idServicio===prepared.classification.serviceId):undefined;
     if(nav(s)){extension={};return manager.handleMessage(phone,text,key);}
     if(/^(encuesta|contestar encuesta|responder encuesta)$/.test(s)){
       const row=(await query(`SELECT e.id_encuesta::text FROM public.encuestas e
@@ -91,6 +93,19 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
     if(/^(?:corregir|me equivoque|corrijo)/.test(s)&&extension.category){
       delete extension.summary;extension.phase="explain";
       return reply("correction","Cuéntame la explicación corregida. No registraré nada hasta confirmar el nuevo resumen.");
+    }
+    // A new, clearly classified request must not get trapped in an unfinished
+    // draft from a different topic. Discard only that unconfirmed draft.
+    const currentService=extension.serviceId
+      ?catalog.find(r=>r.idServicio===extension.serviceId):undefined;
+    const isDifferentTopic=classifiedService&&
+      (extension.category==="policies"
+        ?classifiedService.categoria!=="Políticas y procedimientos"||classifiedService.idServicio!==extension.serviceId
+        :extension.category==="voice"
+          ?classifiedService.categoria!=="Tu Voz en Trainmex"||classifiedService.idServicio!==extension.serviceId
+          :false);
+    if(currentService&&isDifferentTopic&&text.length>=12&&!yes(s)&&s!=="no"){
+      extension={};
     }
     // Remote appointments use the SAME SQL adapter and global resource as payroll.
     if(/^(consultar|ver|mi|mis) citas?$/.test(s)){
@@ -153,7 +168,7 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
     }
     if(!extension.category) {
       const menu=manager.exportState(phone).menu as {category?:string;screen?:string}|null;
-      const selected=prepared.classification.serviceId?catalog.find(r=>r.idServicio===prepared.classification.serviceId):null;
+      const selected=classifiedService??null;
       if(s==="2"&&(!menu?.category||menu.screen==="main_menu")||selected?.categoria==="Políticas y procedimientos"||s.includes("necesito atencion de rh")){
         extension={category:"policies",phase:"explain",serviceId:selected?.idServicio};
         if(selected&&text.length>20){extension.summary=text.slice(0,1000);}
