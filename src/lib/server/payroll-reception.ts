@@ -123,7 +123,7 @@ export function createPayrollReception(
     if (!draft.friday) return answer("payroll_friday",
       "¿De qué semana fue el pago? Por ejemplo, «el viernes pasado» o «hace dos semanas». Si prefieres, dime la fecha.");
     if (draft.needsConcept) return answer("payroll_concept",
-      "¿Qué concepto no coincide? Por ejemplo: premio de puntualidad y asistencia, tiempo extra o despensa.");
+      "Cuéntame brevemente qué pasó con tu pago. Si te ayuda, por ejemplo: el sueldo, el premio de puntualidad y asistencia, el tiempo extra o la despensa.");
     if (!draft.description) {
       const prompt = draft.otherConcept
         ? "¿Cuál es ese otro concepto y qué ocurrió? Cuéntamelo brevemente con tus palabras."
@@ -269,8 +269,15 @@ export function createPayrollReception(
         draft.description = null;
         return advance(draft, services);
       }
+      if (text.length >= 12 && text.length <= 1000 && !YES.test(input)) {
+        draft.needsConcept = false;
+        draft.description = text.replace(/\s+/g, " ").trim();
+        draft.otherConcept = false;
+        delete draft.correction;
+        return advance(draft, services);
+      }
       return answer("payroll_concept",
-        "¿Qué concepto no coincide? Por ejemplo: premio de puntualidad y asistencia, tiempo extra o despensa.");
+        "Cuéntame brevemente qué pasó con tu pago. Si te ayuda, por ejemplo: el sueldo, el premio de puntualidad y asistencia, el tiempo extra o la despensa.");
     }
     if (!draft.description) {
       if (text.length < 12 || text.length > 1000 || YES.test(input)) return answer("payroll_explanation",

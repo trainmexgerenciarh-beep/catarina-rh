@@ -69,7 +69,7 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   assert.doesNotMatch(prompt.reply, /Hola, soy Catarina/);
   const conceptPrompt = await dateNeeded.handleMessage(phone,"06/11/2026","natural-date");
   assert.equal(conceptPrompt.action,"payroll_concept");
-  assert.match(conceptPrompt.reply,/premio de puntualidad y asistencia, tiempo extra o despensa/);
+  assert.match(conceptPrompt.reply,/sueldo, el premio de puntualidad y asistencia, el tiempo extra o la despensa/);
   const explanation = await dateNeeded.handleMessage(phone,"horas extra","natural-concept");
   assert.equal(explanation.action,"payroll_explanation");
   assert.match(explanation.reply,/¿Qué pasó con el tiempo extra\?/);
@@ -78,6 +78,15 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   assert.equal(summary.action,"payroll_summary");
   assert.match(summary.reply,/Nómina y prestaciones — Horas extra/);
   assert.match(summary.reply,/Me faltaron horas extra/);
+  const freeform = createPayrollReception(dependencies(),createMemoryTicketRepository());
+  await freeform.handleMessage(phone,"Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.","freeform-start");
+  const openPrompt=await freeform.handleMessage(phone,"06/11/2026","freeform-date");
+  assert.equal(openPrompt.action,"payroll_concept");
+  assert.match(openPrompt.reply,/Cuéntame brevemente qué pasó con tu pago/);
+  const freeSummary=await freeform.handleMessage(phone,"El sueldo no coincide con lo que gano.","freeform-description");
+  assert.equal(freeSummary.action,"payroll_summary");
+  assert.match(freeSummary.reply,/El sueldo no coincide con lo que gano/);
+  assert.doesNotMatch(freeSummary.reply,/¿Qué concepto no coincide/);
   const other = createPayrollReception(dependencies(),createMemoryTicketRepository());
   await other.handleMessage(phone,"Tengo duda sobre mi pago semanal; recibí menos.","other-start");
   await other.handleMessage(phone,"06/11/2026","other-date");
