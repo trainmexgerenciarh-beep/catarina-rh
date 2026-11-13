@@ -58,7 +58,8 @@ function specificPayrollService(text: string, services: ActiveService[]): Active
   const input = normalizePayrollInput(text);
   if (/\b(?:requisitos?|reglas?|obtener|calificar)\b/.test(input)) return undefined;
   const patterns: [RegExp, string][] = [
-    [/\b(?:premio|bono|puntualidad|asistencia)\b/, "Premios de puntualidad y asistencia"],
+    [/\bbonos?\b/, "Otros"],
+    [/\b(?:premio|puntualidad|asistencia)\b/, "Premios de puntualidad y asistencia"],
     [/\b(?:horas? extra|tiempo extra|tiempo extraordinario)\b/, "Horas extra"],
     [/\b(?:despensa|vales?)\b/, "Despensa"],
     [/\b(?:gasolina|combustible)\b/, "Gasolina"],
@@ -122,11 +123,21 @@ export function createPayrollReception(
     if (!draft.friday) return answer("payroll_friday",
       "¿De qué semana fue el pago? Por ejemplo, «el viernes pasado» o «hace dos semanas». Si prefieres, dime la fecha.");
     if (draft.needsConcept) return answer("payroll_concept",
-      "¿Qué concepto no coincide: premio o bono, horas extra, despensa u otro?");
-    if (!draft.description) return answer("payroll_explanation",
-      draft.otherConcept
+      "¿Qué concepto no coincide? Por ejemplo: premio de puntualidad y asistencia, tiempo extra o despensa.");
+    if (!draft.description) {
+      const prompt = draft.otherConcept
         ? "¿Cuál es ese otro concepto y qué ocurrió? Cuéntamelo brevemente con tus palabras."
-        : `¿Qué ocurrió con ${service.subcategoria}? Cuéntamelo brevemente con tus palabras.`);
+        : service.subcategoria === "Pago semanal"
+          ? "Cuéntame brevemente qué pasó. Por ejemplo: el premio de puntualidad y asistencia, el tiempo extra o la despensa."
+          : service.subcategoria === "Premios de puntualidad y asistencia"
+            ? "¿Qué pasó con tu premio de puntualidad y asistencia? Cuéntamelo brevemente con tus palabras."
+            : service.subcategoria === "Horas extra"
+              ? "¿Qué pasó con el tiempo extra? Cuéntamelo brevemente con tus palabras."
+              : service.subcategoria === "Despensa"
+                ? "¿Qué pasó con la despensa? Cuéntamelo brevemente con tus palabras."
+                : `¿Qué ocurrió con ${service.subcategoria}? Cuéntamelo brevemente con tus palabras.`;
+      return answer("payroll_explanation", prompt);
+    }
     draft.phase = "confirm";
     return answer("payroll_summary",
       `Esto es lo que entendí:\n${summary(draft, service)}\n¿Confirmas que registre esta aclaración? Puedes confirmar, corregir o cancelar. No determino si hubo un error de nómina ni prometo una resolución.`);
@@ -247,7 +258,7 @@ export function createPayrollReception(
       if (concept) {
         draft.serviceId = concept.idServicio;
         draft.needsConcept = false;
-        draft.otherConcept = false;
+        draft.otherConcept = concept.subcategoria === "Otros";
         draft.description = /\b(?:no|falt\w*|recib\w*|pag\w*|aparec\w*|difer\w*|incomplet\w*|incorrect\w*|deben|descont\w*)\b/.test(input)
           ? text.replace(/\s+/g, " ").trim() : null;
         return advance(draft, services);
@@ -258,7 +269,8 @@ export function createPayrollReception(
         draft.description = null;
         return advance(draft, services);
       }
-      return answer("payroll_concept", "¿Qué concepto no coincide: premio o bono, horas extra, despensa u otro?");
+      return answer("payroll_concept",
+        "¿Qué concepto no coincide? Por ejemplo: premio de puntualidad y asistencia, tiempo extra o despensa.");
     }
     if (!draft.description) {
       if (text.length < 12 || text.length > 1000 || YES.test(input)) return answer("payroll_explanation",
