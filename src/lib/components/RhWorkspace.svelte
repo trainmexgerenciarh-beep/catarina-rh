@@ -7,7 +7,12 @@
   export let mode: 'demo' | 'admin';
 
   type Row = Record<string, unknown>;
-  type Message = { from: 'catarina' | 'persona'; text: string };
+  type Message = {
+    from: 'catarina' | 'persona';
+    text: string;
+    choices?: { label: string; value: string }[];
+    choicesUsed?: boolean;
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Resumen', group: 'Inicio', mark: '01' },
@@ -100,6 +105,8 @@
   let conversationBusy = false;
   let conversationError = '';
   let messages: Message[] = [];
+  let activeDatePicker: number | null = null;
+  let selectedDate = '';
   let period = todayInMexico().slice(0, 7);
   let categoryOptions: { value: string; label: string }[] = [];
   let categoryOptionsLoaded = false;
@@ -348,29 +355,73 @@
     }
   }
 
-  async function sendConversation(event: SubmitEvent) {
-    event.preventDefault();
-    const text = conversationText.trim();
-    if (!text || conversationBusy) return;
+  function choicesForConversationAction(action: unknown) {
+    if (action === 'payroll_friday') return [
+      { label: 'Viernes pasado', value: 'viernes pasado' },
+      { label: 'Viernes antepasado', value: 'viernes antepasado' },
+      { label: 'Elegir otra fecha', value: '__choose_date' }
+    ];
+    if (action === 'payroll_friday_candidate') return [
+      { label: 'Sí, esa fecha', value: 'sí' },
+      { label: 'No, elegir otra', value: 'no' }
+    ];
+    return undefined;
+  }
+
+  async function sendConversationText(text: string) {
+    const cleaned = text.trim();
+    if (!cleaned || conversationBusy) return;
     conversationBusy = true;
     conversationError = '';
-    messages = [...messages, { from: 'persona', text }];
+    messages = [...messages, { from: 'persona', text: cleaned }];
     conversationText = '';
     try {
       const response = await fetch('/api/demo/conversation', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, eventId: crypto.randomUUID() })
+        body: JSON.stringify({ text: cleaned, eventId: crypto.randomUUID() })
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || typeof payload.reply !== 'string' || !payload.reply.trim()) throw new Error(payload.error || 'No se recibió una respuesta válida del servicio.');
-      messages = [...messages, { from: 'catarina', text: payload.reply }];
+      messages = [...messages, { from: 'catarina', text: payload.reply, choices: choicesForConversationAction(payload.action) }];
     } catch (reason) {
       conversationError = reason instanceof Error ? reason.message : 'No se pudo enviar el mensaje.';
     } finally {
       conversationBusy = false;
     }
+  }
+
+  async function sendConversation(event: SubmitEvent) {
+    event.preventDefault();
+    await sendConversationText(conversationText);
+  }
+
+  async function chooseConversationOption(value: string, messageIndex: number) {
+    if (value === '__choose_date') {
+      activeDatePicker = messageIndex;
+      selectedDate = '';
+      return;
+    }
+    messages = messages.map((message, index) =>
+      index === messageIndex ? { ...message, choicesUsed: true } : message
+    );
+    activeDatePicker = null;
+    selectedDate = '';
+    await sendConversationText(value);
+  }
+
+  async function sendSelectedDate() {
+    if (!selectedDate) return;
+    const date = selectedDate;
+    if (activeDatePicker !== null) {
+      messages = messages.map((message, index) =>
+        index === activeDatePicker ? { ...message, choicesUsed: true } : message
+      );
+    }
+    activeDatePicker = null;
+    selectedDate = '';
+    await sendConversationText(date);
   }
 
   async function resetConversation() {
@@ -573,21 +624,41 @@
             <div class="conversation-head"><div class="catarina-avatar">C</div><div><strong>Catarina</strong><span>Recepción de Recursos Humanos · modo de prueba</span></div><span class="session-lock">SESIÓN AISLADA</span></div>
             <div class="thread" aria-live="polite">
               {#if messages.length === 0}<div class="thread-empty"><span class="thread-rule"></span><strong>La conversación empieza aquí.</strong><p>Prueba una consulta sobre nómina, políticas o una cita.</p></div>{/if}
-              {#each messages as message}
+              {#each messages as message, messageIndex}
                 <div class:outgoing={message.from === 'persona'} class="bubble-row">
                   {#if message.from === 'catarina'}<span class="mini-mark">C</span>{/if}
                   <p class="bubble">{message.text}</p>
                   {#if message.from === 'persona'}<span class="you-mark">TÚ</span>{/if}
                 </div>
+                {#if message.from === 'catarina' && message.choices}
+                  <div class="conversation-choices" role="group" aria-label="Opciones para continuar">
+                    {#each message.choices as choice}
+                      <button type="button" on:click={() => chooseConversationOption(choice.value, messageIndex)} disabled={conversationBusy || message.choicesUsed}>
+                        {choice.label}
+                      </button>
+                    {/each}
+                  </div>
+                  {#if activeDatePicker === messageIndex}
+                    <div class="date-choice">
+                      <label for="payroll-date-choice">Elige la fecha del viernes</label>
+                      <input id="payroll-date-choice" type="date" bind:value={selectedDate} />
+                      <button type="button" on:click={sendSelectedDate} disabled={!selectedDate || conversationBusy}>Usar esta fecha</button>
+                    </div>
+                  {/if}
+                {/if}
               {/each}
               {#if conversationBusy}<div class="bubble-row"><span class="mini-mark">C</span><div class="typing"><i></i><i></i><i></i></div></div>{/if}
             </div>
             {#if conversationError}<p class="alert error" role="alert">{conversationError}</p>{/if}
-            <form class="composer" on:submit={sendConversation}>
-              <label class="sr-only" for="conversation-text">Mensaje para Catarina</label>
-              <input id="conversation-text" bind:value={conversationText} placeholder="Escribe un mensaje para Catarina…" disabled={conversationBusy} />
-              <button class="send-button" type="submit" disabled={conversationBusy || !conversationText.trim()}>Enviar <span aria-hidden="true">↗</span></button>
-            </form>
+            {#if messages.at(-1)?.from === 'catarina' && messages.at(-1)?.choices}
+              <p class="choice-hint">Selecciona una opción para continuar.</p>
+            {:else}
+              <form class="composer" on:submit={sendConversation}>
+                <label class="sr-only" for="conversation-text">Mensaje para Catarina</label>
+                <input id="conversation-text" bind:value={conversationText} placeholder="Escribe un mensaje para Catarina…" disabled={conversationBusy} />
+                <button class="send-button" type="submit" disabled={conversationBusy || !conversationText.trim()}>Enviar <span aria-hidden="true">↗</span></button>
+              </form>
+            {/if}
             <p class="privacy-line">No envía mensajes a WhatsApp ni consulta documentos externos.</p>
           </section>
         {:else}
@@ -843,6 +914,7 @@
   .conversation{max-width:820px;margin:0 auto 34px;border:1px solid #e1e5dc;border-radius:8px;background:#fbfbf8;overflow:hidden}
   .conversation-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #e8ebe3;background:#f9faf5}.catarina-avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:12px 12px 12px 3px;background:#244e47;color:#f4e8d5;font:500 19px 'Fraunces',serif}.conversation-head>div:nth-child(2){display:grid;gap:3px}.conversation-head strong{color:#345448;font-size:11px}.conversation-head>div:nth-child(2) span{color:#89978d;font-size:9px}.session-lock{margin-left:auto;color:#9b8a61;font:9px 'DM Mono',monospace;letter-spacing:.08em}
   .thread{min-height:330px;max-height:55vh;display:flex;flex-direction:column;gap:17px;padding:22px 19px;overflow-y:auto;background:radial-gradient(ellipse at 90% 4%,rgba(223,231,218,.35),transparent 42%),#f7f8f2}
+  .conversation-choices{display:flex;flex-wrap:wrap;gap:8px;margin:-8px 33px 0}.conversation-choices button,.date-choice button{min-height:36px;padding:0 12px;border:1px solid #cbd8cb;border-radius:5px;background:#fff;color:#31594a;font-size:11px;font-weight:600;cursor:pointer}.conversation-choices button:hover:not(:disabled),.date-choice button:hover:not(:disabled){border-color:#4d806a;background:#eef4eb}.conversation-choices button:disabled,.date-choice button:disabled{opacity:.55;cursor:not-allowed}.date-choice{display:flex;align-items:end;flex-wrap:wrap;gap:8px;margin:-6px 33px 0}.date-choice label{display:grid;gap:5px;color:#75867a;font-size:10px}.date-choice input{height:36px;padding:0 9px;border:1px solid #dfe4da;border-radius:4px;background:#fff;color:#365448}.choice-hint{margin:0;padding:13px 16px;border-top:1px solid #e6e9e1;color:#74877a;font-size:10px}
   .thread-empty{display:grid;justify-items:center;align-content:center;flex:1;min-height:270px;text-align:center}.thread-rule{width:26px;height:2px;margin-bottom:14px;background:#d47b5d}.thread-empty strong{color:#426052;font:500 20px 'Fraunces',serif}.thread-empty p{color:#8b988e;font-size:10px}
   .bubble-row{display:flex;align-items:flex-end;gap:9px}.bubble-row.outgoing{justify-content:flex-end}.mini-mark,.you-mark{display:grid;place-items:center;flex:0 0 24px;height:24px;border-radius:8px 8px 8px 2px;background:#dce8da;color:#4f7861;font:10px 'Fraunces',serif}.you-mark{border-radius:50%;background:#f1dfcf;color:#996349;font:8px 'DM Mono',monospace}.bubble{max-width:min(72%,560px);margin:0;padding:12px 14px;border:1px solid #e1e6db;border-radius:4px 12px 12px;background:#fff;color:#4a6255;font-size:11px;line-height:1.65;white-space:pre-wrap}.outgoing .bubble{border-color:#e6d6c9;border-radius:12px 4px 12px 12px;background:#f4e9dd;color:#675746}.typing{display:flex;gap:4px;padding:12px 14px;border:1px solid #e1e6db;border-radius:5px;background:#fff}.typing i{width:4px;height:4px;border-radius:50%;background:#80998a;animation:typing 1s infinite alternate}.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}@keyframes typing{to{opacity:.25;transform:translateY(-3px)}}
   .composer{display:flex;gap:10px;padding:13px;border-top:1px solid #e6e9e1}.composer input{flex:1;min-width:0;height:42px;padding:0 13px;border:1px solid #dfe4da;border-radius:4px;background:#fff;color:#365448;font-size:11px}.composer input::placeholder{color:#a0aaa2}.send-button{display:flex;align-items:center;gap:11px;padding:0 15px;border:0;border-radius:4px;background:#244e47;color:#f3f1e7;font-size:10px;font-weight:700;cursor:pointer}.send-button:disabled{opacity:.5;cursor:not-allowed}.privacy-line{margin:0;padding:0 16px 12px;color:#9aa69d;font-size:9px;text-align:right}
