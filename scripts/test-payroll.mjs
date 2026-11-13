@@ -59,6 +59,12 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   const result = await manager.handleMessage(phone, "No recibí el pago semanal del 06/11/2026.", "direct");
   assert.equal(result.action, "payroll_summary");
   assert.doesNotMatch(result.reply, /Cuéntame/);
+  const dateNeeded = createPayrollReception(dependencies(), createMemoryTicketRepository());
+  const prompt = await dateNeeded.handleMessage(phone,
+    "Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.", "natural-no-date");
+  assert.equal(prompt.action, "payroll_friday");
+  assert.equal(prompt.reply, "¿De qué semana es el pago? Puedes decirme, por ejemplo, «el viernes pasado» o darme la fecha.");
+  assert.doesNotMatch(prompt.reply, /Hola, soy Catarina/);
   const policy = createPayrollReception(dependencies(), createMemoryTicketRepository());
   const requirements = await policy.handleMessage(phone, "¿Cuáles son los requisitos del premio?");
   assert.match(requirements.reply, /Políticas y procedimientos/);

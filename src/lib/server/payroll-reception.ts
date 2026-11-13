@@ -100,9 +100,9 @@ export function createPayrollReception(
       return answer("payroll_topic", serviceMenu(services));
     }
     if (draft.candidate) return answer("payroll_friday_candidate",
-      `¿Te refieres al viernes ${displayFriday(draft.candidate)}? Confirma la fecha o indica otra fecha completa.`);
+      `¿Te refieres al viernes ${displayFriday(draft.candidate)}?`);
     if (!draft.friday) return answer("payroll_friday",
-      "¿A qué viernes de pago corresponde? Puedes indicar la fecha completa (día/mes/año) o decirme qué semana; si es ambiguo, la aclaramos.");
+      "¿De qué semana es el pago? Puedes decirme, por ejemplo, «el viernes pasado» o darme la fecha.");
     if (!draft.description) return answer("payroll_explanation",
       `¿Qué ocurrió con ${service.subcategoria}? Cuéntame lo necesario en una explicación breve, sin contraseñas ni datos bancarios.`);
     draft.phase = "confirm";
@@ -286,7 +286,10 @@ export function createPayrollReception(
         }
         session.draft = draft;
         const prompt = advance(draft, services);
-        if (/Hola, soy Catarina/.test(result.reply)) prompt.reply = `Hola, soy Catarina, recepcionista virtual de RH. ${prompt.reply}`;
+        if (/Hola, soy Catarina/.test(result.reply) &&
+            /^(?:hola|buenos dias|buenas tardes|buenas noches)$/.test(input)) {
+          prompt.reply = `Hola, soy Catarina, recepcionista de RH. ${prompt.reply}`;
+        }
         result = { ...prompt, classification: result.classification };
       } else {
         result.reply = result.reply.replace(
