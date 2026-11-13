@@ -2,10 +2,10 @@
 
 ## Estado vigente — administración simplificada
 
-La carpeta institucional está conectada y sincronizada. En la revisión del 13 de
-noviembre de 2026 aparecieron dos políticas como **Borrador · privado**; no hay
-ninguna política activa para responder a colaboradores. No se aprobó contenido
-real en esta actualización.
+La carpeta institucional está conectada. El administrador activó
+**Política de Vacaciones**; **Política para la gestión de permisos y licencias**
+permanece como borrador privado. La corrección técnica descrita abajo no aprobó
+ni modificó contenido real.
 
 El administrador principal abre una ficha, lee el documento en privado, elige
 **Política / preguntas de trabajador** o **Procedimiento interno** y pulsa una
@@ -30,6 +30,15 @@ La sincronización y lectura del contenido suceden con la identidad conectada a
 Drive. No se lee Drive en cada mensaje. No se necesita migración: el flujo usa
 la columna `fuentes.biblioteca` existente y deja `vigente_desde` vacío en nuevas
 aprobaciones.
+
+### Nota de corrección: texto extraído por Drive
+
+Al activar la segunda política, la primera versión del divisor de texto combinó
+párrafos y reconstruyó algunos saltos en blanco. Eso podía hacer fallar la
+comprobación literal, aunque el documento fuera accesible. El divisor ahora
+conserva segmentos del texto original, incluidos los espacios entre párrafos.
+Después de la corrección, vuelve a sincronizar la carpeta y repite **Leer en
+privado → Validar y activar** para esa política. No se ha activado en automático.
 
 ## Antecedente: migración mínima de la biblioteca
 

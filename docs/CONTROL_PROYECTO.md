@@ -11,8 +11,9 @@ ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
 **IMPLEMENTADA Y PROBADA CON FIXTURES / DOCUMENTOS REALES SIGUEN EN BORRADOR.**
 
 - El titular pidió administrar la biblioteca con menos campos y una validación
-  sencilla. La carpeta Drive ya sincronizada muestra dos políticas como borrador;
-  ninguna se activó ni se publicó en esta actualización.
+  sencilla. Al inicio, ambas políticas estaban en borrador; después, el
+  administrador activó Política de Vacaciones. La de permisos/licencias sigue
+  privada y pendiente; esta corrección no la activa en automático.
 - La ficha ya no exige categoría, alcance, fechas ni pegar fragmentos. Tras leer
   el archivo, el administrador principal elige el tipo y activa con un clic.
   La versión se extrae del contenido cuando aparece; la categoría se asigna como
@@ -23,10 +24,14 @@ ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
   **Retirar** lo saca de uso sin borrar Drive.
 - Las fechas `emitido`, `vence` y `vigente_desde` ya no condicionan aprobación ni
   respuesta. No se cambió el esquema: se usa `fuentes.biblioteca` existente.
-- Pruebas PASS: `test:library` 6 grupos, `test:integral` 9 grupos,
+- Corrección posterior a la primera validación: el texto extraído por Drive puede
+  tener espacios en líneas vacías. La división anterior reconstruía esos saltos y
+  rechazaba el texto por no coincidir literalmente. Ahora se divide conservando
+  segmentos del texto original; se añadió una regresión para ese formato.
+- Pruebas PASS: `test:library` 6 grupos, `test:integral` 10 grupos,
   `check` 0 errores/0 avisos y `build`. SQL Neon solo en transacción con
   `ROLLBACK`; las huellas de las 16 tablas iguales, servicios y horarios intactos.
-  Las secuencias auditoría 105→114 y fuentes 31→34 consumieron valores dentro
+  En la última prueba, las secuencias auditoría 115→124 y fuentes 34→37 consumieron valores dentro
   del rollback y no se restablecieron.
 - No se aprobó ninguna política real, no se enviaron mensajes, no se publicó
   despliegue y no se modificaron Drive ni Secrets.

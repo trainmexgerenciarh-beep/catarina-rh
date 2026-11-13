@@ -13,9 +13,9 @@ respuestas a colaboradores. Los cambios o retiros de Drive se detectan al
 sincronizar manualmente; no hay vigilancia automática.
 
 El acceso administrativo está configurado y el propietario ya inició sesión.
-La biblioteca muestra dos documentos como borradores; ninguno se ha activado
-para respuestas a colaboradores. WhatsApp saliente sigue deshabilitado y la app
-no se ha publicado.
+La **Política de Vacaciones** está activa para respuestas a colaboradores; la
+política de permisos/licencias sigue en borrador tras fallar su primera
+validación. WhatsApp saliente sigue deshabilitado y la app no se ha publicado.
 
 ## Entrega vigente — Directorio y Sheets de prueba
 
