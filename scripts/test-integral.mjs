@@ -43,6 +43,12 @@ assert.equal(await groundedAnswer("vacaciones autorización previa","Vacaciones"
 assert((await groundedAnswer("vacaciones autorización previa","Vacaciones",[{...source,vigente_desde:null}],async()=>extract)));
 assert((await groundedAnswer("vacaciones autorización previa","Vacaciones",[{...source,vigente_desde:"2099-01-01"}],async()=>extract)));
 assert(!grounded.text.includes("vigente desde"));
+const vacationPolicy={...source,nombre:"POLÍTICA DE VACACIONES"};
+const permissionsPolicy={...source,id_fuente:"2",nombre:"POLÍTICA PARA LA GESTIÓN DE PERMISOS Y LICENCIAS",
+  url_drive:"https://docs.google.com/document/d/synthetic-permissions-policy",
+  biblioteca:{...source.biblioteca,driveId:"synthetic-permissions-policy"}};
+const preferred=await groundedAnswer("¿Qué dice la política de vacaciones?","Vacaciones",[permissionsPolicy,vacationPolicy]);
+assert.equal(preferred?.sourceId,"1","The service-specific policy title wins over a related policy that only mentions vacations");
 pass("Fuentes: texto aprobado, cita/version, sin depender de fechas; permiso ausente bloqueado");
 const spacedPolicy="Regla ficticia inicial.\n \t\nRegla ficticia posterior.";
 assert.deepEqual(splitApprovedDocument(spacedPolicy),[spacedPolicy]);

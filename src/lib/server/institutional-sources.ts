@@ -58,7 +58,9 @@ const normalize=(t:string)=>t.normalize("NFD").replace(/\p{Diacritic}/gu,"").toL
  * changed or inaccessible files and disables the old approval until reviewed. */
 export async function groundedAnswer(question:string,service:string,sources:Source[],_reader?:typeof readSource) {
   const words=[...new Set(normalize(question+" "+service).match(/[a-z]{5,}/g)??[])].filter(w=>!["quiero","necesito","sobre","puedo","cuales","tengo","para","saber"].includes(w));
-  const candidates:{source:Source;excerpt:string;score:number}[]=[];
+  const requiredScore=Math.min(3,Math.max(1,words.length));
+  const serviceWords=[...new Set(normalize(service).match(/[a-z]{5,}/g)??[])];
+  const candidates:{source:Source;excerpt:string;score:number;titleScore:number}[]=[];
   for(const source of sources) {
     try{
       const b=source.biblioteca,a=b?.approval;
@@ -70,17 +72,23 @@ export async function groundedAnswer(question:string,service:string,sources:Sour
       // The exact excerpts were checked against a stable Drive read before approval.
       // Revalidate their bounded shape here, without fetching or exposing full source.
       const fragments=validatePublishedFragments(a.fragments);
+      const title=normalize(source.nombre);
+      const titleScore=serviceWords.filter(w=>title.includes(w)).length;
       for(const p of fragments.filter(x=>x.length>=20&&x.length<=2500)) {
         const n=normalize(p),score=words.filter(w=>n.includes(w)).length;
-        if(score>=Math.min(3,Math.max(2,words.length)))candidates.push({source,excerpt:p,score});
+        if(score>=requiredScore)candidates.push({source,excerpt:p,score,titleScore});
       }
     }catch{/* Explicitly missing/invalid evidence; never invent a policy response. */}
   }
-  candidates.sort((a,b)=>b.score-a.score);
-  // Multiple different qualifying extracts can conflict or require contextual
-  // interpretation. Do not guess precedence; route to RH instead.
-  if(new Set(candidates.map(c=>normalize(c.excerpt).trim())).size>1)return null;
-  const best=candidates[0];
+  // Prefer a document whose title names the selected service. If equally relevant
+  // candidates remain in different documents, do not guess which policy governs.
+  const titleRank=Math.max(0,...candidates.map(c=>c.titleScore));
+  const topical=titleRank?candidates.filter(c=>c.titleScore===titleRank):candidates;
+  const scoreRank=Math.max(0,...topical.map(c=>c.score));
+  const bestCandidates=topical.filter(c=>c.score===scoreRank);
+  if(new Set(bestCandidates.map(c=>c.source.id_fuente)).size>1)return null;
+  bestCandidates.sort((a,b)=>a.excerpt.localeCompare(b.excerpt));
+  const best=bestCandidates[0];
   return best?{text:`La fuente institucional indica:\n«${best.excerpt}»\nFuente: ${best.source.nombre}${best.source.version?`, versión ${best.source.version}`:""}.\nSi este extracto no responde tu caso, indica «necesito atención de RH».`,sourceId:best.source.id_fuente,
     proof:contentHash(JSON.stringify(best.source.biblioteca))}:null;
 }
