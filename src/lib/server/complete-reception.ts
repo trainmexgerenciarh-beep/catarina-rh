@@ -197,8 +197,10 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
         return reply("policy_answer",prepared.answer.text);
       }
       extension.phase="summary";
-      const demoNote=simulation?" En esta prueba no consulto las políticas que activaste en la biblioteca del panel.":"";
-      return reply("policy_missing",`Claro, te ayudo.${demoNote} No tengo una política aprobada que responda esta duda y prefiero no darte información incorrecta. ¿Quieres que pase tu consulta a RH para que te orienten y avisar que falta documentarla? No la registraré hasta que me confirmes.`);
+      const missingPolicy=simulation
+        ?"Esta prueba no consulta las políticas activadas en el panel"
+        :"No tengo una política aprobada para confirmar esta regla";
+      return reply("policy_missing",`Claro. ${missingPolicy}, así que no quiero darte un dato incorrecto. ¿Quieres que pase tu duda a RH? Solo la registro si me dices que sí.`);
     }
     if(extension.phase==="topic"){
       const options=catalog.filter(x=>x.categoria==="Tu Voz en Trainmex");

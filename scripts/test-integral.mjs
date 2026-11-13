@@ -61,10 +61,11 @@ await send("no");assert.equal(demo.read("tickets").filter(t=>t.estado==="cerrado
 pass("Simulación nómina completa con folio y negativa expresa, sin resolver");
 await send("menú principal");await send("2");
 const missingPolicy=await send("Quiero conocer los requisitos para solicitar vacaciones");
-assert.match(missingPolicy.reply,/Claro, te ayudo/);
-assert.match(missingPolicy.reply,/prefiero no darte información incorrecta/);
-assert.match(missingPolicy.reply,/En esta prueba no consulto las políticas que activaste en la biblioteca del panel/);
-assert.match(missingPolicy.reply,/¿Quieres que pase tu consulta a RH/);
+assert.match(missingPolicy.reply,/Claro\. Esta prueba no consulta las políticas activadas en el panel/);
+assert.match(missingPolicy.reply,/no quiero darte un dato incorrecto/);
+assert.match(missingPolicy.reply,/¿Quieres que pase tu duda a RH\?/);
+assert.match(missingPolicy.reply,/Solo la registro si me dices que sí/);
+assert(missingPolicy.reply.length<200);
 assert(!missingPolicy.reply.includes("Resumen:")&&!missingPolicy.reply.includes("No dispongo"));
 const policyTicket=await send("confirmo");assert.equal(demo.read("consultas").length,2);
 assert.match(policyTicket.reply,/ya pasé tu consulta a RH/);
