@@ -65,7 +65,7 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   const prompt = await dateNeeded.handleMessage(phone,
     "Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.", "natural-no-date");
   assert.equal(prompt.action, "payroll_friday");
-  assert.equal(prompt.reply, "¿De qué semana fue el pago? Por ejemplo, «el viernes pasado» o «hace dos semanas». Si prefieres, dime la fecha.");
+  assert.match(prompt.reply,/el pasado, el antepasado o alguna otra fecha/);
   assert.doesNotMatch(prompt.reply, /Hola, soy Catarina/);
   const conceptPrompt = await dateNeeded.handleMessage(phone,"06/11/2026","natural-date");
   assert.equal(conceptPrompt.action,"payroll_concept");
@@ -140,6 +140,12 @@ await test("Viernes absoluto, relativo, fecha imposible, día distinto y año am
   const twoWeeks=await relative.handleMessage(phone,"el pago de hace dos semanas");
   assert.equal(twoWeeks.action,"payroll_friday_candidate");
   assert.match(twoWeeks.reply,/30\/10\/2026/);
+  assert.deepEqual(parseFriday("el viernes antepasado",now),{kind:"candidate",date:"2026-10-30"});
+  const typo=createPayrollReception(dependencies(),createMemoryTicketRepository(),{now:()=>now});
+  await typo.handleMessage(phone,"Me falta el pago semanal.");
+  const correctedTypo=await typo.handleMessage(phone,"el iernes pasado");
+  assert.equal(correctedTypo.action,"payroll_friday_candidate");
+  assert.match(correctedTypo.reply,/06\/11\/2026/);
 });
 
 await test("Correcciones antes de confirmar; cancelar/menú/regresar nunca registran ni resuelven", async () => {

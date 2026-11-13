@@ -21,6 +21,9 @@ function checkedDate(year: number, month: number, day: number): FridayReference 
 /** Calendar arithmetic only. Never claims that payroll was actually paid. */
 export function parseFriday(text: string, now: number): FridayReference {
   const input = normalizePayrollInput(text);
+  // A missing initial "v" is a frequent typo in "viernes"; repair only this
+  // unambiguous spelling so relative-date matching can still ask for confirmation.
+  const relativeInput = input.replace(/\biernes\b/g, "viernes");
   const explicitReferences = [
     ...input.matchAll(/\b\d{4}-\d{2}-\d{2}\b/g),
     ...input.matchAll(/\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b/g),
@@ -41,23 +44,26 @@ export function parseFriday(text: string, now: number): FridayReference {
   const part = (type: string) => Number(parts.find((entry) => entry.type === type)?.value);
   const today = new Date(Date.UTC(part("year"), part("month") - 1, part("day")));
   const weekday = today.getUTCDay();
+  const previousFridayOffset = -((weekday - 5 + 7) % 7 || 7);
   let offset: number | null = null;
   const weekCountWords: Record<string, number> = {
     una: 1, uno: 1, un: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
     siete: 7, ocho: 8, nueve: 9, diez: 10
   };
-  const weeksAgo = input.match(/\bhace\s+(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+semanas?\b/);
+  const weeksAgo = relativeInput.match(/\bhace\s+(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+semanas?\b/);
   if (weeksAgo) {
     const weeks = /^\d+$/.test(weeksAgo[1]) ? Number(weeksAgo[1]) : weekCountWords[weeksAgo[1]];
     if (!Number.isSafeInteger(weeks) || weeks < 1) return { kind: "invalid" };
     offset = 5 - (weekday === 0 ? 7 : weekday) - weeks * 7;
-  } else if (/\b(?:viernes pasado|viernes anterior)\b/.test(input)) {
-    offset = -((weekday - 5 + 7) % 7 || 7);
-  } else if (/\b(?:ultimo pago|pago mas reciente|ultimo viernes)\b/.test(input)) {
+  } else if (/\b(?:viernes antepasado|viernes de hace dos semanas)\b/.test(relativeInput)) {
+    offset = previousFridayOffset - 7;
+  } else if (/\b(?:viernes pasado|viernes anterior)\b/.test(relativeInput)) {
+    offset = previousFridayOffset;
+  } else if (/\b(?:ultimo pago|pago mas reciente|ultimo viernes)\b/.test(relativeInput)) {
     offset = -((weekday - 5 + 7) % 7);
-  } else if (/\b(?:esta semana|semana actual|este viernes)\b/.test(input)) {
+  } else if (/\b(?:esta semana|semana actual|este viernes)\b/.test(relativeInput)) {
     offset = 5 - (weekday === 0 ? 7 : weekday);
-  } else if (/\bsemana pasada\b/.test(input)) {
+  } else if (/\bsemana pasada\b/.test(relativeInput)) {
     offset = 5 - (weekday === 0 ? 7 : weekday) - 7;
   }
   if (offset === null) return { kind: "missing" };
