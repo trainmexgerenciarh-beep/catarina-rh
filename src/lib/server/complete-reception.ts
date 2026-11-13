@@ -179,7 +179,7 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
           VALUES($1,$2,$3,'documentacion faltante',$4::jsonb,$5)`,
           [owner,service.idServicio,extension.summary,JSON.stringify({version:1,faltante_documental:true}),t.id_ticket]);
         extension.ticketId=t.id_ticket;delete extension.summary;extension.phase="offer";
-        return reply("policy_ticket",`Registré tu consulta y el faltante documental. Folio RH-${t.id_ticket}. ¿Deseas agendar una cita a distancia con RH? Aún no hay reserva.`);
+        return reply("policy_ticket",`Listo, ya pasé tu consulta a RH para que te orienten. Tu folio es RH-${t.id_ticket}. También avisé que falta información en la biblioteca. ¿Quieres solicitar una cita a distancia? Todavía no está reservada; si quieres, te muestro los horarios.`);
       }
       const service=catalog.find(x=>x.idServicio===(extension.serviceId??prepared.classification.serviceId)&&x.categoria==="Políticas y procedimientos");
       if(!service){
@@ -197,7 +197,8 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
         return reply("policy_answer",prepared.answer.text);
       }
       extension.phase="summary";
-      return reply("policy_missing",`No dispongo de una fuente institucional suficiente para responder sin inventar políticas.\nResumen: ${extension.summary}\n¿Confirmas registrar esta consulta para atención de RH y señalar la documentación faltante?`);
+      const demoNote=simulation?" En esta prueba no consulto las políticas que activaste en la biblioteca del panel.":"";
+      return reply("policy_missing",`Claro, te ayudo.${demoNote} No tengo una política aprobada que responda esta duda y prefiero no darte información incorrecta. ¿Quieres que pase tu consulta a RH para que te orienten y avisar que falta documentarla? No la registraré hasta que me confirmes.`);
     }
     if(extension.phase==="topic"){
       const options=catalog.filter(x=>x.categoria==="Tu Voz en Trainmex");

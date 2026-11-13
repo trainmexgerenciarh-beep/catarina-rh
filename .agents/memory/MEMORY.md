@@ -6,3 +6,4 @@
 - [Administración RH](administracion-rh.md) — Trainmex exige un administrador principal único; los gestores no pueden promoverse ni transferirlo.
 - [Importación de directorio](directory-import-safety.md) — confirmar altas en UI, no sobrescribir registros ni desactivar ausentes; centro no se inventa.
 - [Biblioteca documental RH](biblioteca-documental-rh.md) — aprobación simple de políticas completas por el principal; procedimientos siguen restringidos a RH.
+- [Voz de Catarina](voz-catarina.md) — respuestas breves, cálidas y naturales; explica límites sin jerga ni repetir mecánicamente lo que escribió la persona.
