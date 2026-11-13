@@ -45,7 +45,7 @@ function answer(action: string, reply: string): Result {
 }
 
 function serviceMenu(services: ActiveService[]): string {
-  return `¿Sobre qué concepto es la aclaración?\n${services.map(
+  return `¿Qué tipo de pago quieres aclarar? Puedes elegir una opción o contármelo con tus palabras.\n${services.map(
     (service, index) => `${index + 1}. ${service.subcategoria}`
   ).join("\n")}\nElige un número o cuéntame qué ocurrió.`;
 }
@@ -58,6 +58,7 @@ function specificPayrollService(text: string, services: ActiveService[]): Active
   const input = normalizePayrollInput(text);
   if (/\b(?:requisitos?|reglas?|obtener|calificar)\b/.test(input)) return undefined;
   const patterns: [RegExp, string][] = [
+    [/\b(?:sueldo|salario)\b/, "Pago semanal"],
     [/\bbonos?\b/, "Otros"],
     [/\b(?:premio|puntualidad|asistencia)\b/, "Premios de puntualidad y asistencia"],
     [/\b(?:horas? extra|tiempo extra|tiempo extraordinario)\b/, "Horas extra"],
@@ -180,17 +181,21 @@ export function createPayrollReception(
     if (/^(?:corregir|corrijo|me equivoque|quiero corregir|no era|quise decir)\b/.test(input) ||
         (draft.phase === "confirm" && input === "no")) {
       draft.phase = "correct";
-      return answer("payroll_correct", "¿Quieres corregir el tema, el viernes o la explicación?");
+      return answer("payroll_correct", "¿Qué quieres corregir: el viernes de pago, el tipo de consulta o lo que pasó?");
     }
     if (draft.phase === "correct") {
-      if (/^(?:tema|concepto|servicio)$/.test(input)) {
-        draft.serviceId = null; draft.correction = "topic";
-      } else if (/^(?:viernes|fecha|semana)$/.test(input)) {
+      if (/^(?:tipo(?: de (?:consulta|pago))?|tema|concepto|servicio)$/.test(input)) {
+        draft.serviceId = null;
+        draft.description = null;
+        draft.needsConcept = false;
+        draft.otherConcept = false;
+        draft.correction = "topic";
+      } else if (/^(?:viernes(?: de pago)?|fecha(?: de pago)?|semana)$/.test(input)) {
         draft.friday = null; draft.candidate = null; draft.correction = "friday";
-      } else if (/^(?:explicacion|relato|descripcion)$/.test(input)) {
+      } else if (/^(?:lo que paso|explicacion|relato|descripcion)$/.test(input)) {
         draft.description = null; draft.correction = "description";
       } else {
-        return answer("payroll_correct", "¿Qué dato quieres corregir: tema, viernes o explicación?");
+        return answer("payroll_correct", "Dime qué quieres cambiar: el viernes de pago, el tipo de consulta o lo que pasó.");
       }
       draft.phase = "collect";
       return advance(draft, services);

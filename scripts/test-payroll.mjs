@@ -146,15 +146,18 @@ await test("Correcciones antes de confirmar; cancelar/menú/regresar nunca regis
   const repo = createMemoryTicketRepository();
   const manager = createPayrollReception(dependencies(), repo);
   await prepare(manager);
-  await manager.handleMessage(phone, "corregir");
-  await manager.handleMessage(phone, "viernes");
+  const correctionPrompt = await manager.handleMessage(phone, "corregir");
+  assert.equal(correctionPrompt.reply, "¿Qué quieres corregir: el viernes de pago, el tipo de consulta o lo que pasó?");
+  await manager.handleMessage(phone, "viernes de pago");
   assert.match((await manager.handleMessage(phone, "13/11/2026")).reply, /13\/11\/2026/);
   await manager.handleMessage(phone, "no");
-  await manager.handleMessage(phone, "explicación");
+  await manager.handleMessage(phone, "lo que pasó");
   await manager.handleMessage(phone, "El pago aparece incompleto, requiero aclararlo.");
   await manager.handleMessage(phone, "corregir");
-  await manager.handleMessage(phone, "tema");
-  assert.equal((await manager.handleMessage(phone, "2")).action, "payroll_summary");
+  const menu = await manager.handleMessage(phone, "tipo de consulta");
+  assert.match(menu.reply,/¿Qué tipo de pago quieres aclarar/);
+  assert.equal((await manager.handleMessage(phone, "2")).action,"payroll_explanation");
+  assert.equal((await manager.handleMessage(phone,"El concepto que no coincide es despensa.","updated-topic")).action,"payroll_summary");
   for (const command of ["cancelar", "menú principal", "regresar"]) {
     const fresh = createPayrollReception(dependencies(), repo);
     await prepare(fresh);
