@@ -37,6 +37,6 @@ export function dependencies() {
 }
 
 export async function prepare(manager, suffix = "") {
-  await manager.handleMessage(phone, "Me falta el pago semanal.", `need${suffix}`);
+  await manager.handleMessage(phone, "Me faltan las horas extra del pago semanal.", `need${suffix}`);
   return manager.handleMessage(phone, "06/11/2026", `date${suffix}`);
 }

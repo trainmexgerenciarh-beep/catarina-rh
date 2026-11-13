@@ -31,6 +31,7 @@ type Draft = {
   friday: string | null;
   candidate: string | null;
   description: string | null;
+  needsConcept?: boolean;
   phase: "collect" | "confirm" | "correct" | "offer";
   correction?: "topic" | "friday" | "description";
   confirmationKey?: string;
@@ -50,6 +51,22 @@ function serviceMenu(services: ActiveService[]): string {
 
 function validMessageId(value: string | undefined): value is string {
   try { requireEventId(value!); return true; } catch { return false; }
+}
+
+function specificPayrollService(text: string, services: ActiveService[]): ActiveService | undefined {
+  const input = normalizePayrollInput(text);
+  if (/\b(?:requisitos?|reglas?|obtener|calificar)\b/.test(input)) return undefined;
+  const patterns: [RegExp, string][] = [
+    [/\b(?:premio|bono|puntualidad|asistencia)\b/, "Premios de puntualidad y asistencia"],
+    [/\b(?:horas? extra|tiempo extra|tiempo extraordinario)\b/, "Horas extra"],
+    [/\b(?:despensa|vales?)\b/, "Despensa"],
+    [/\b(?:gasolina|combustible)\b/, "Gasolina"],
+    [/\b(?:recibo|comprobante|cfdi)\b/, "Recibo de nómina"],
+    [/\bdescuento(?:s)?\b/, "Descuentos"]
+  ];
+  const label = patterns.find(([pattern]) => pattern.test(input))?.[1];
+  return label ? services.find((service) => normalizePayrollInput(service.subcategoria ?? "") ===
+    normalizePayrollInput(label)) : undefined;
 }
 
 /** Composes the approved menu engine; no scheduling or outbound transport. */
@@ -103,6 +120,8 @@ export function createPayrollReception(
       `¿Te refieres al viernes ${displayFriday(draft.candidate)}?`);
     if (!draft.friday) return answer("payroll_friday",
       "¿De qué semana es el pago? Puedes decirme, por ejemplo, «el viernes pasado» o darme la fecha.");
+    if (draft.needsConcept) return answer("payroll_concept",
+      "¿Qué concepto no coincide: premio o bono, horas extra, despensa u otro?");
     if (!draft.description) return answer("payroll_explanation",
       `¿Qué ocurrió con ${service.subcategoria}? Cuéntame lo necesario en una explicación breve, sin contraseñas ni datos bancarios.`);
     draft.phase = "confirm";
@@ -198,15 +217,18 @@ export function createPayrollReception(
         normalizePayrollInput(service.subcategoria ?? "") === input);
       if (option || byLabel) {
         draft.serviceId = (option ? services[Number(option[1]) - 1] : byLabel)!.idServicio;
+        draft.needsConcept = false;
         delete draft.correction;
         return advance(draft, services);
       }
       const classification = await dependencies.classifyService(text, catalog);
-      const selected = services.find((service) => service.idServicio === classification.serviceId);
+      const explicitConcept = specificPayrollService(text, services);
+      const selected = explicitConcept ?? services.find((service) => service.idServicio === classification.serviceId);
       if (!selected || classification.classification !== "clasificado") {
         return answer("payroll_topic", `No pude ubicar un concepto activo de nómina. Si son requisitos de una política, puedes volver al menú.\n${serviceMenu(services)}`);
       }
       draft.serviceId = selected.idServicio;
+      draft.needsConcept = selected.subcategoria === "Pago semanal" && !explicitConcept;
       if (text.length <= 1000 && text.length >= 12) draft.description = text;
       takeDate(draft, text);
       return advance(draft, services);
@@ -216,6 +238,19 @@ export function createPayrollReception(
       if (!takeDate(draft, text)) return answer("payroll_friday",
         "Necesito precisar el viernes: indica día, mes y año y comprueba que sea viernes. No asumiré la fecha del pago.");
       return advance(draft, services);
+    }
+    if (draft.needsConcept) {
+      const concept = specificPayrollService(text, services);
+      if (concept) {
+        draft.serviceId = concept.idServicio;
+        draft.needsConcept = false;
+        return advance(draft, services);
+      }
+      if (/^(?:otro|otra|otro concepto)$/.test(input)) {
+        draft.needsConcept = false;
+        return advance(draft, services);
+      }
+      return answer("payroll_concept", "¿Qué concepto no coincide: premio o bono, horas extra, despensa u otro?");
     }
     if (!draft.description) {
       if (text.length < 12 || text.length > 1000 || YES.test(input)) return answer("payroll_explanation",
@@ -276,9 +311,11 @@ export function createPayrollReception(
         const catalog = await dependencies.listActiveServices();
         const services = catalog.filter((service) => service.categoria === PAYROLL);
         if (services.length !== 8) throw new TicketError("PAYROLL_CATALOG_UNAVAILABLE");
-        const service = services.find((row) => row.idServicio === result.serviceId);
+        const explicitConcept = specificPayrollService(text, services);
+        const service = explicitConcept ?? services.find((row) => row.idServicio === result.serviceId);
         const draft: Draft = { serviceId: service?.idServicio ?? null,
-          friday: null, candidate: null, description: null, phase: "collect" };
+          friday: null, candidate: null, description: null, phase: "collect",
+          needsConcept: service?.subcategoria === "Pago semanal" && !explicitConcept };
         if (service && text.length >= 12 && text.length <= 1000 &&
             normalizePayrollInput(service.subcategoria ?? "") !== input) {
           draft.description = text.replace(/\s+/g, " ").trim();

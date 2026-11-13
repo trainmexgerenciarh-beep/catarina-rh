@@ -56,15 +56,23 @@ await test("Los ocho servicios numéricos, explicación, viernes y confirmación
 await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premios siguen separados", async () => {
   const repo = createMemoryTicketRepository();
   const manager = createPayrollReception(dependencies(), repo);
-  const result = await manager.handleMessage(phone, "No recibí el pago semanal del 06/11/2026.", "direct");
+  const result = await manager.handleMessage(phone, "No recibí mis horas extra en el pago semanal del 06/11/2026.", "direct");
   assert.equal(result.action, "payroll_summary");
   assert.doesNotMatch(result.reply, /Cuéntame/);
+  assert.match(result.reply,/Nómina y prestaciones — Horas extra/);
   const dateNeeded = createPayrollReception(dependencies(), createMemoryTicketRepository());
   const prompt = await dateNeeded.handleMessage(phone,
     "Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.", "natural-no-date");
   assert.equal(prompt.action, "payroll_friday");
   assert.equal(prompt.reply, "¿De qué semana es el pago? Puedes decirme, por ejemplo, «el viernes pasado» o darme la fecha.");
   assert.doesNotMatch(prompt.reply, /Hola, soy Catarina/);
+  const conceptPrompt = await dateNeeded.handleMessage(phone,"06/11/2026","natural-date");
+  assert.equal(conceptPrompt.action,"payroll_concept");
+  assert.match(conceptPrompt.reply,/premio o bono, horas extra/);
+  const summary = await dateNeeded.handleMessage(phone,"horas extra","natural-concept");
+  assert.equal(summary.action,"payroll_summary");
+  assert.match(summary.reply,/Nómina y prestaciones — Horas extra/);
+  assert.match(summary.reply,/recibí menos de lo esperado/);
   const policy = createPayrollReception(dependencies(), createMemoryTicketRepository());
   const requirements = await policy.handleMessage(phone, "¿Cuáles son los requisitos del premio?");
   assert.match(requirements.reply, /Políticas y procedimientos/);
@@ -87,8 +95,10 @@ await test("Viernes absoluto, relativo, fecha imposible, día distinto y año am
   assert.equal((await manager.handleMessage(phone, "no")).action, "payroll_friday");
   assert.equal((await manager.handleMessage(phone, "esta semana")).action, "payroll_friday_candidate");
   const result = await manager.handleMessage(phone, "sí");
-  assert.equal(result.action, "payroll_summary");
-  assert.match(result.reply, /13\/11\/2026/);
+  assert.equal(result.action, "payroll_concept");
+  const summary=await manager.handleMessage(phone,"horas extra","hours");
+  assert.equal(summary.action,"payroll_summary");
+  assert.match(summary.reply, /13\/11\/2026/);
   assert.equal(repo.snapshot().length, 0);
 });
 
@@ -118,10 +128,10 @@ await test("ID inventado/inactivo o cambio de catálogo no se registra; proveedo
   const deps = dependencies();
   const manager = createPayrollReception(deps, repo);
   await prepare(manager);
-  deps.listActiveServices = async () => services.filter(s => s.idServicio !== "1");
+  deps.listActiveServices = async () => services.filter(s => s.idServicio !== "6");
   await assert.rejects(manager.handleMessage(phone, "confirmo", "inactive"), { code: "PAYROLL_CATALOG_UNAVAILABLE" });
   deps.listActiveServices = async () => services.map(service =>
-    service.idServicio === "1" ? { ...service, idServicio: "16" } : service);
+    service.idServicio === "6" ? { ...service, idServicio: "16" } : service);
   assert.equal((await manager.handleMessage(phone, "confirmo", "removed")).action, "payroll_topic");
   const fakeId = createPayrollReception({
     ...dependencies(), classifyService: async () => ({ serviceId: "invented", classification: "clasificado" })
