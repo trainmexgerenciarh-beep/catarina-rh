@@ -32,6 +32,7 @@ type Draft = {
   candidate: string | null;
   description: string | null;
   needsConcept?: boolean;
+  otherConcept?: boolean;
   phase: "collect" | "confirm" | "correct" | "offer";
   correction?: "topic" | "friday" | "description";
   confirmationKey?: string;
@@ -123,7 +124,9 @@ export function createPayrollReception(
     if (draft.needsConcept) return answer("payroll_concept",
       "¿Qué concepto no coincide: premio o bono, horas extra, despensa u otro?");
     if (!draft.description) return answer("payroll_explanation",
-      `¿Qué ocurrió con ${service.subcategoria}? Cuéntame lo necesario en una explicación breve, sin contraseñas ni datos bancarios.`);
+      draft.otherConcept
+        ? "¿Cuál es ese otro concepto y qué ocurrió? Cuéntamelo brevemente con tus palabras."
+        : `¿Qué ocurrió con ${service.subcategoria}? Cuéntamelo brevemente con tus palabras.`);
     draft.phase = "confirm";
     return answer("payroll_summary",
       `Esto es lo que entendí:\n${summary(draft, service)}\n¿Confirmas que registre esta aclaración? Puedes confirmar, corregir o cancelar. No determino si hubo un error de nómina ni prometo una resolución.`);
@@ -244,18 +247,28 @@ export function createPayrollReception(
       if (concept) {
         draft.serviceId = concept.idServicio;
         draft.needsConcept = false;
+        draft.otherConcept = false;
+        draft.description = /\b(?:no|falt\w*|recib\w*|pag\w*|aparec\w*|difer\w*|incomplet\w*|incorrect\w*|deben|descont\w*)\b/.test(input)
+          ? text.replace(/\s+/g, " ").trim() : null;
         return advance(draft, services);
       }
       if (/^(?:otro|otra|otro concepto)$/.test(input)) {
         draft.needsConcept = false;
+        draft.otherConcept = true;
+        draft.description = null;
         return advance(draft, services);
       }
       return answer("payroll_concept", "¿Qué concepto no coincide: premio o bono, horas extra, despensa u otro?");
     }
     if (!draft.description) {
       if (text.length < 12 || text.length > 1000 || YES.test(input)) return answer("payroll_explanation",
-        "Cuéntame brevemente qué ocurrió (hasta 1000 caracteres), sin datos bancarios ni contraseñas.");
+        "Cuéntame brevemente con tus palabras qué ocurrió; una frase basta.");
+      if (draft.otherConcept) {
+        const identified = specificPayrollService(text, services);
+        if (identified) draft.serviceId = identified.idServicio;
+      }
       draft.description = text.replace(/\s+/g, " ").trim();
+      draft.otherConcept = false;
       delete draft.correction;
     }
     return advance(draft, services);
