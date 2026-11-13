@@ -42,31 +42,33 @@ export function splitApprovedDocument(content:string):string[]{
   const text=normalizeContent(content);
   if(!text||text.length>50000)return libraryError("LIBRARY_DOCUMENT_TOO_LARGE");
   const chunks:string[]=[];
-  let current="";
-  const appendLong=(raw:string)=>{
-    let remaining=raw;
-    while(remaining.length>2500){
-      let cut=remaining.lastIndexOf(" ",2500);
-      if(cut<1200)cut=2500;
-      chunks.push(remaining.slice(0,cut).trim());
-      remaining=remaining.slice(cut).trim();
+  let start=0;
+  while(start<text.length){
+    let end=Math.min(start+2500,text.length);
+    if(end<text.length){
+      for(let i=end-1;i>=start+1200;i--){
+        if(/\s/u.test(text[i])){end=i+1;break;}
+      }
+      if(end<text.length&&text.charCodeAt(end-1)>=0xd800&&text.charCodeAt(end-1)<=0xdbff&&
+        text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;
+      let tail=text.slice(end).trim();
+      while(tail.length>0&&tail.length<20&&end>start+20){
+        end--;
+        if(text.charCodeAt(end-1)>=0xd800&&text.charCodeAt(end-1)<=0xdbff&&
+          text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;
+        tail=text.slice(end).trim();
+      }
     }
-    current=remaining;
-  };
-  for(const paragraph of text.split(/\n\s*\n/)){
-    if(paragraph.length>2500){
-      if(current)chunks.push(current);
-      current="";
-      appendLong(paragraph);
-      if(current.length===2500){chunks.push(current);current="";}
-    }else if(!current)current=paragraph;
-    else if(current.length+paragraph.length+2<=2500)current+=`\n\n${paragraph}`;
-    else {chunks.push(current);current=paragraph;}
+    const fragment=text.slice(start,end).trim();
+    if(fragment)chunks.push(fragment);
+    start=end;
+    while(start<text.length&&/\s/u.test(text[start]))start++;
   }
-  if(current)chunks.push(current);
   const unique=[...new Set(chunks)];
-  if(unique.length>20)return libraryError("LIBRARY_DOCUMENT_TOO_LARGE");
-  return validateFragments(text,unique,"POLITICA/PREGUNTAS_TRABAJADOR");
+  if(unique.length>20||unique.some(s=>s.length<20||s.length>2500)||unique.reduce((n,s)=>n+s.length,0)>50000)
+    return libraryError("LIBRARY_DOCUMENT_TOO_LARGE");
+  if(unique.some(s=>!text.includes(s)))return libraryError("LIBRARY_EXCERPT_NOT_EXACT");
+  return unique;
 }
 /** Defense-in-depth validation for the exact excerpts stored at approval time.
  * The full source is intentionally not persisted or fetched by each conversation. */

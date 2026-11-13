@@ -16,9 +16,9 @@ const messages:Record<string,string>={
   LIBRARY_STALE_REVIEW:"Cambió el documento o su configuración durante la revisión. Vuelve a leerlo.",
   LIBRARY_CHANGED_DURING_READ:"El archivo cambió durante la lectura. Vuelve a revisarlo.",
   LIBRARY_EXPLICIT_APPROVAL_REQUIRED:"Vuelve a leer el documento y actívalo desde la ficha.",
+  LIBRARY_EXCERPT_NOT_EXACT:"No se pudo verificar exactamente el texto del archivo. Sincroniza la carpeta y vuelve a leerlo.",
   LIBRARY_DOCUMENT_TOO_LARGE:"El documento supera el límite de lectura para esta biblioteca. Divide el archivo en partes más pequeñas.",
   LIBRARY_ROOT_DISABLED:"La carpeta está desactivada. Sus documentos no se publican.",
-  LIBRARY_INVALID_DATE:"Revisa las fechas. Emisión y vigencia no son lo mismo.",
   LIBRARY_RESOURCE_INVALID:"Introduce el enlace o ID válido de una hoja de Google Sheets.",
   LIBRARY_RESOURCE_CONFLICT:"Directorio y exportación deben ser archivos distintos, sin configuraciones duplicadas.",
   COMMIT_OUTCOME_UNKNOWN:"El acuse de guardado es incierto. Recarga la biblioteca antes de repetir."
