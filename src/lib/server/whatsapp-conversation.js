@@ -180,9 +180,9 @@ function showMainMenu(state, includeWelcome) {
   state.hasExplainedNeed = false;
   state.awaitingCorrection = false;
   const welcome = includeWelcome
-    ? "Hola, soy Catarina, recepcionista virtual de RH. Puedo ayudarte a ubicar tu necesidad."
+    ? "Hola, soy Catarina, recepcionista de RH."
     : "Menú principal:";
-  return `${welcome}\n\nElige una opción por número o cuéntame directamente qué necesitas:\n1. Nómina y prestaciones (pagos semanales, despensa, gasolina y conceptos similares).\n2. Políticas y procedimientos de RH (vacaciones, permisos, premios, etc.).\n3. Tu Voz en Trainmex (quejas y denuncias o ideas y mejoras).\n\nEn esta etapa solo simulamos la recepción: no resuelvo asuntos ni registro trámites.`;
+  return `${welcome}\n\n¿En qué puedo ayudarte?\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Quiero presentar una queja o denuncia.\n\nTambién puedes contarme directamente qué necesitas.`;
 }
 
 function voiceSubmenuText() {
@@ -473,7 +473,7 @@ export function createConversationManager(dependencies, sessionStore = new Map()
       return makeResult(
         collaboratorStatus,
         "correction_applied",
-        `No logré ubicar la corrección. ¿Se trata de ${CATEGORY_OPTIONS[0].label}, ${CATEGORY_OPTIONS[1].label} o ${CATEGORY_OPTIONS[2].label}? Puedes responder 1, 2 o 3.`,
+        `No logré ubicar la corrección. Elige una opción:\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Quiero presentar una queja o denuncia.`,
         classified.classification
       );
     }

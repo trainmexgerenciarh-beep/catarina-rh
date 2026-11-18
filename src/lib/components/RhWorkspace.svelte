@@ -104,7 +104,17 @@
   let conversationText = '';
   let conversationBusy = false;
   let conversationError = '';
-  let messages: Message[] = [];
+  const welcomeChoices = [
+    { label: 'Tengo un problema con mi pago', value: '1' },
+    { label: 'Tengo una duda sobre reglas de RH', value: '2' },
+    { label: 'Quiero presentar una queja o denuncia', value: '3' }
+  ];
+  const initialConversation: Message[] = [{
+    from: 'catarina',
+    text: 'Hola, soy Catarina, recepcionista de RH. ¿En qué puedo ayudarte?',
+    choices: welcomeChoices
+  }];
+  let messages: Message[] = [...initialConversation];
   let activeDatePicker: number | null = null;
   let selectedDate = '';
   let period = todayInMexico().slice(0, 7);
@@ -366,9 +376,9 @@
       { label: 'No, elegir otra', value: 'no' }
     ];
     if (action === 'payroll_correct') return [
-      { label: 'Viernes de pago', value: 'viernes de pago' },
-      { label: 'Tipo de consulta', value: 'tipo de consulta' },
-      { label: 'Lo que pasó', value: 'lo que pasó' }
+      { label: 'La fecha del pago', value: 'viernes de pago' },
+      { label: 'El tema de la consulta', value: 'tipo de consulta' },
+      { label: 'Lo que expliqué', value: 'lo que pasó' }
     ];
     if (['payroll_summary', 'payroll_confirm_required', 'voice_summary'].includes(String(action))) return [
       { label: 'Confirmar', value: 'confirmo' },
@@ -513,7 +523,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload.ok !== true) throw new Error(payload.error || 'El servidor no confirmó el reinicio de la sesión.');
-      messages = [];
+      messages = [...initialConversation];
       notice = 'Sesión de demostración reiniciada.';
     } catch (reason) {
       conversationError = reason instanceof Error ? reason.message : 'No se pudo reiniciar la sesión.';
@@ -707,7 +717,7 @@
                   <p class="bubble">{message.text}</p>
                   {#if message.from === 'persona'}<span class="you-mark">TÚ</span>{/if}
                 </div>
-                {#if message.from === 'catarina' && message.choices}
+                {#if message.from === 'catarina' && message.choices && !message.choicesUsed}
                   <div class="conversation-choices" role="group" aria-label="Opciones para continuar">
                     {#each message.choices as choice}
                       <button type="button" on:click={() => chooseConversationOption(choice.value, messageIndex)} disabled={conversationBusy || message.choicesUsed}>

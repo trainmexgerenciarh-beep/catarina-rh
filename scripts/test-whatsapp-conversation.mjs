@@ -119,9 +119,9 @@ async function testAuthorizationAndWelcome() {
   const welcome = await manager.handleMessage(activePhone, "Hola");
   assert.equal(welcome.action, "welcome");
   assert.match(welcome.reply, /Hola, soy Catarina/);
-  assert.match(welcome.reply, /1\. Nómina y prestaciones/);
-  assert.match(welcome.reply, /2\. Políticas y procedimientos de RH/);
-  assert.match(welcome.reply, /3\. Tu Voz en Trainmex/);
+  assert.match(welcome.reply, /1\. Tengo un problema con mi pago/);
+  assert.match(welcome.reply, /2\. Tengo una duda sobre reglas de RH/);
+  assert.match(welcome.reply, /3\. Quiero presentar una queja o denuncia/);
   console.log("Acceso activo/denegado y bienvenida con tres opciones: PASS.");
 }
 
@@ -158,7 +158,9 @@ async function testMenuContextCommandsAndCorrection() {
     "Es sobre algo diferente."
   );
   assert.equal(unclearCorrection.action, "correction_applied");
-  assert.match(unclearCorrection.reply, /¿Se trata de/);
+  assert.match(unclearCorrection.reply, /1\. Tengo un problema con mi pago/);
+  assert.match(unclearCorrection.reply, /2\. Tengo una duda sobre reglas de RH/);
+  assert.match(unclearCorrection.reply, /3\. Quiero presentar una queja o denuncia/);
   const changedCategory = await manager.handleMessage(activePhone, "2");
   assert.equal(changedCategory.action, "category_changed");
   assert.match(changedCategory.reply, /Políticas y procedimientos de RH/);
@@ -166,7 +168,7 @@ async function testMenuContextCommandsAndCorrection() {
 
   const menu = await manager.handleMessage(activePhone, "menú principal");
   assert.equal(menu.action, "menu");
-  assert.match(menu.reply, /1\. Nómina y prestaciones/);
+  assert.match(menu.reply, /1\. Tengo un problema con mi pago/);
   const back = await manager.handleMessage(activePhone, "regresar");
   assert.equal(back.action, "back");
   assert.doesNotMatch(back.reply, /Hola, soy Catarina/);

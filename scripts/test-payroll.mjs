@@ -24,7 +24,7 @@ await test("Identidad activa, inactiva, ausente y ambigua; cero tickets antes de
     assert.equal((await manager.handleMessage(`00000000000000${suffix}`, "hola")).action, "access_denied");
   }
   const menu = await manager.handleMessage(phone, "hola", "greeting");
-  assert.match(menu.reply, /1\. Nómina.*\n2\. Políticas.*\n3\. Tu Voz/s);
+  assert.match(menu.reply, /1\. Tengo un problema con mi pago\.\n2\. Tengo una duda sobre reglas de RH\.\n3\. Quiero presentar una queja o denuncia\./s);
   await manager.handleMessage(phone, "1", "payroll-menu");
   assert.equal(repo.snapshot().length, 0);
 });
@@ -40,6 +40,9 @@ await test("Los ocho servicios numéricos, explicación, viernes y confirmación
       if(option===1)assert.match(explainPrompt.reply,/premio de puntualidad y asistencia, el tiempo extra o la despensa/);
       const summary=await manager.handleMessage(phone,"El concepto no aparece en mi pago.");
       assert.equal(summary.action,"payroll_summary");
+      assert.match(summary.reply,/Revisa si lo entendí bien/);
+      assert.match(summary.reply,/Tema: /);
+      assert.match(summary.reply,/Lo que pasó: El concepto no aparece en mi pago\./);
       assert.match(summary.reply,/06\/11\/2026/);
     assert.equal(repo.snapshot().length, 0);
     assert.equal((await manager.handleMessage(phone, "tal vez", "unclear")).action, "payroll_confirm_required");
@@ -60,7 +63,7 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   const result = await manager.handleMessage(phone, "No recibí mis horas extra en el pago semanal del 06/11/2026.", "direct");
   assert.equal(result.action, "payroll_summary");
   assert.doesNotMatch(result.reply, /Cuéntame/);
-  assert.match(result.reply,/Nómina y prestaciones — Horas extra/);
+  assert.match(result.reply,/Tema: Horas extra/);
   const dateNeeded = createPayrollReception(dependencies(), createMemoryTicketRepository());
   const prompt = await dateNeeded.handleMessage(phone,
     "Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.", "natural-no-date");
@@ -76,7 +79,11 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   assert.match(explanation.reply,/Cuéntamelo brevemente con tus palabras/);
   const summary = await dateNeeded.handleMessage(phone,"Me faltaron horas extra de esa semana.","natural-explanation");
   assert.equal(summary.action,"payroll_summary");
-  assert.match(summary.reply,/Nómina y prestaciones — Horas extra/);
+    assert.match(summary.reply,/Revisa si lo entendí bien:[\s\S]*Tema: Horas extra/);
+    assert.match(summary.reply,/Fecha del pago: 06\/11\/2026/);
+    assert.match(summary.reply,/Lo que pasó: Me faltaron horas extra/);
+    assert.match(summary.reply,/¿Lo registro para que RH lo revise\?/);
+    assert.doesNotMatch(summary.reply,/No determino|no prometo una resolución|Esto es lo que entendí/);
   assert.match(summary.reply,/Me faltaron horas extra/);
   const freeform = createPayrollReception(dependencies(),createMemoryTicketRepository());
   await freeform.handleMessage(phone,"Tengo una duda sobre mi pago semanal; recibí menos de lo esperado.","freeform-start");
@@ -95,7 +102,7 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   assert.match(otherPrompt.reply,/¿Cuál es ese otro concepto y qué ocurrió/);
   const otherSummary=await other.handleMessage(phone,"El premio de puntualidad no aparece en mi pago.","other-detail");
   assert.equal(otherSummary.action,"payroll_summary");
-  assert.match(otherSummary.reply,/Nómina y prestaciones — Premios de puntualidad y asistencia/);
+    assert.match(otherSummary.reply,/Tema: Premios de puntualidad y asistencia/);
   const bonus=createPayrollReception(dependencies(),createMemoryTicketRepository());
   await bonus.handleMessage(phone,"Tengo duda sobre mi pago semanal; recibí menos.","bonus-start");
   await bonus.handleMessage(phone,"06/11/2026","bonus-date");
@@ -104,7 +111,7 @@ await test("Entrada natural reutiliza relato y fecha; pago y requisitos de premi
   assert.match(bonusPrompt.reply,/¿Cuál es ese otro concepto y qué ocurrió/);
   const bonusSummary=await bonus.handleMessage(phone,"No aparece el bono de productividad en mi pago.","bonus-detail");
   assert.equal(bonusSummary.action,"payroll_summary");
-  assert.match(bonusSummary.reply,/Nómina y prestaciones — Otros/);
+    assert.match(bonusSummary.reply,/Tema: Otros/);
   const policy = createPayrollReception(dependencies(), createMemoryTicketRepository());
   const requirements = await policy.handleMessage(phone, "¿Cuáles son los requisitos del premio?");
   assert.match(requirements.reply, /Políticas y procedimientos/);
@@ -153,7 +160,7 @@ await test("Correcciones antes de confirmar; cancelar/menú/regresar nunca regis
   const manager = createPayrollReception(dependencies(), repo);
   await prepare(manager);
   const correctionPrompt = await manager.handleMessage(phone, "corregir");
-  assert.equal(correctionPrompt.reply, "¿Qué quieres corregir: el viernes de pago, el tipo de consulta o lo que pasó?");
+  assert.equal(correctionPrompt.reply, "¿Qué quieres corregir: la fecha del pago, el tema de la consulta o lo que explicaste?");
   await manager.handleMessage(phone, "viernes de pago");
   assert.match((await manager.handleMessage(phone, "13/11/2026")).reply, /13\/11\/2026/);
   await manager.handleMessage(phone, "no");

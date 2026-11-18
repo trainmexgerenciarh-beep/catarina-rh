@@ -109,7 +109,7 @@ export function createPayrollReception(
   }
 
   function summary(draft: Draft, service: ActiveService): string {
-    return `Nómina y prestaciones — ${service.subcategoria}\nViernes de pago: ${displayFriday(draft.friday!)}\nAclaración: ${draft.description}`;
+    return `Tema: ${service.subcategoria}\nFecha del pago: ${displayFriday(draft.friday!)}\nLo que pasó: ${draft.description}`;
   }
 
   function advance(draft: Draft, services: ActiveService[]): Result {
@@ -141,7 +141,7 @@ export function createPayrollReception(
     }
     draft.phase = "confirm";
     return answer("payroll_summary",
-      `Esto es lo que entendí:\n${summary(draft, service)}\n¿Confirmas que registre esta aclaración? Puedes confirmar, corregir o cancelar. No determino si hubo un error de nómina ni prometo una resolución.`);
+      `Revisa si lo entendí bien:\n${summary(draft, service)}\n\n¿Lo registro para que RH lo revise?`);
   }
 
   function takeDate(draft: Draft, text: string): boolean {
@@ -181,7 +181,7 @@ export function createPayrollReception(
     if (/^(?:corregir|corrijo|me equivoque|quiero corregir|no era|quise decir)\b/.test(input) ||
         (draft.phase === "confirm" && input === "no")) {
       draft.phase = "correct";
-      return answer("payroll_correct", "¿Qué quieres corregir: el viernes de pago, el tipo de consulta o lo que pasó?");
+      return answer("payroll_correct", "¿Qué quieres corregir: la fecha del pago, el tema de la consulta o lo que explicaste?");
     }
     if (draft.phase === "correct") {
       if (/^(?:tipo(?: de (?:consulta|pago))?|tema|concepto|servicio)$/.test(input)) {
@@ -195,7 +195,7 @@ export function createPayrollReception(
       } else if (/^(?:lo que paso|explicacion|relato|descripcion)$/.test(input)) {
         draft.description = null; draft.correction = "description";
       } else {
-        return answer("payroll_correct", "Dime qué quieres cambiar: el viernes de pago, el tipo de consulta o lo que pasó.");
+        return answer("payroll_correct", "Elige qué quieres cambiar: la fecha del pago, el tema de la consulta o lo que explicaste.");
       }
       draft.phase = "collect";
       return advance(draft, services);
