@@ -414,9 +414,9 @@
       { label: 'Cancelar cita', value: 'cancelar cita' },
       { label: 'Reprogramar cita', value: 'reprogramar cita' }
     ];
-    if (action === 'voice_topic') return [
-      { label: 'Quejas y denuncias', value: 'quejas y denuncias' },
-      { label: 'Ideas y mejoras', value: 'ideas y mejoras' }
+    if (['voice_topic', 'voice_submenu'].includes(String(action))) return [
+      { label: 'Quejas o denuncias', value: 'quejas o denuncias' },
+      { label: 'Sugerencias e ideas de mejora', value: 'ideas y mejoras' }
     ];
     if (action === 'agenda_choose_existing') {
       return [...reply.matchAll(/^[ \t]*(\d+)\.[ \t]*(.+)$/gm)].flatMap(match => [

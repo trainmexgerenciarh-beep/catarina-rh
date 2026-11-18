@@ -358,8 +358,8 @@ await test("Políticas y Tu Voz conservan navegación sin nuevos registros ni ag
   const repo = createMemoryTicketRepository();
   const manager = createPayrollReception(dependencies(), repo);
   await manager.handleMessage(phone, "hola");
-  assert.match((await manager.handleMessage(phone, "3")).reply, /Quejas y denuncias/);
-  assert.match((await manager.handleMessage(phone, "2")).reply, /Ideas y mejoras/);
+  assert.match((await manager.handleMessage(phone, "3")).reply, /Quejas o denuncias/);
+  assert.match((await manager.handleMessage(phone, "2")).reply, /Sugerencias e ideas de mejora/);
   await manager.handleMessage(phone, "menú principal");
   assert.match((await manager.handleMessage(phone, "2")).reply, /Políticas y procedimientos/);
   await manager.handleMessage(phone, "Quiero saber de vacaciones.");

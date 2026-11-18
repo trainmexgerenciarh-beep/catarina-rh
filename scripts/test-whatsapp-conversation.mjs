@@ -203,27 +203,27 @@ async function testNaturalEntryAndVoiceSubmenu() {
   assert.equal(voiceMenu.action, "menu");
   const voiceCategory = await manager.handleMessage(activePhone, "3");
   assert.equal(voiceCategory.action, "category_selected");
-  assert.match(voiceCategory.reply, /1\. Quejas y denuncias/);
-  assert.match(voiceCategory.reply, /2\. Ideas y mejoras/);
+  assert.match(voiceCategory.reply, /1\. Quejas o denuncias/);
+  assert.match(voiceCategory.reply, /2\. Sugerencias e ideas de mejora/);
 
   const complaint = await manager.handleMessage(activePhone, "1");
   assert.equal(complaint.action, "voice_topic_selected");
-  assert.match(complaint.reply, /Quejas y denuncias/);
+  assert.match(complaint.reply, /Quejas o denuncias/);
   assert.match(complaint.reply, /no se registra ningún expediente/);
 
   const backToVoice = await manager.handleMessage(activePhone, "regresar");
   assert.equal(backToVoice.action, "back");
-  assert.match(backToVoice.reply, /1\. Quejas y denuncias/);
+  assert.match(backToVoice.reply, /1\. Quejas o denuncias/);
   const ideas = await manager.handleMessage(activePhone, "2");
   assert.equal(ideas.action, "voice_topic_selected");
-  assert.match(ideas.reply, /Ideas y mejoras/);
+  assert.match(ideas.reply, /Sugerencias e ideas de mejora/);
 
   const directIdea = await manager.handleMessage(
     directIdeaPhone,
     "Tengo una idea para mejorar un proceso."
   );
   assert.equal(directIdea.action, "direct_entry");
-  assert.match(directIdea.reply, /ideas y mejoras/i);
+  assert.match(directIdea.reply, /sugerencias e ideas de mejora/i);
   console.log("Entrada natural y submenú de Tu Voz con regreso: PASS.");
 }
 
@@ -255,7 +255,7 @@ async function testAmbiguityAndPayloadProcessing() {
     "Quiero presentar una queja."
   );
   assert.equal(naturalVoice.action, "direct_entry");
-  assert.match(naturalVoice.reply, /quejas y denuncias/i);
+  assert.match(naturalVoice.reply, /quejas o denuncias/i);
 
   const inventedIdManager = createConversationManager({
     lookupCollaborator: async () => "active",

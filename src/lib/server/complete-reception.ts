@@ -15,6 +15,9 @@ export type ReceptionDependencies={
 export type Extension={
   category?:"policies"|"voice";phase?:string;serviceId?:string;summary?:string;
   topic?:string;consent?:boolean;ticketId?:string;appointmentId?:string;
+  voiceKind?:"complaint"|"suggestion";voiceWhen?:string;voiceWhat?:string;
+  voiceInvolved?:string;voiceImpact?:string;voiceWitnesses?:string;
+  voiceIdea?:string;voiceBenefit?:string;
   choices?:string[];selected?:string;modality?:Modality;moving?:boolean;
   surveyId?:string;attended?:boolean;rating?:number;resolution?:string;
 };
@@ -37,6 +40,30 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
   };
   const yes=(s:string)=>/^(si|confirmo|si confirmo|correcto|de acuerdo)$/.test(s);
   const nav=(s:string)=>/^(menu(?: principal)?|volver|regresar|cancelar|inicio)$/.test(s);
+  const voicePrompt=(phase:string)=>({
+    voice_when:"¿Cuándo ocurrió aproximadamente? Puedes decir una fecha o algo como «la semana pasada». Cuéntamelo con tus palabras.",
+    voice_what:"¿Qué ocurrió? Cuéntalo de forma objetiva y con tus palabras.",
+    voice_involved:"¿Quiénes estuvieron involucrados? Puedes decir sus nombres o puestos, si los sabes.",
+    voice_impact:"¿Cómo te afectó a ti, al trabajo o al ambiente del área?",
+    voice_witnesses:"¿Hubo testigos? Indica quiénes o escribe «no hubo» o «no sé».",
+    voice_idea:"¿Qué te gustaría mejorar? Cuéntame tu idea con tus palabras.",
+    voice_benefit:"¿Qué problema resolvería o qué beneficio tendría para el equipo?"
+  } as Record<string,string>)[phase]??"Cuéntame un poco más con tus palabras.";
+  const voiceSummary=(draft:Extension)=>{
+    if(draft.voiceKind==="complaint")return [
+      "Tipo: Queja o denuncia",
+      `Cuándo ocurrió: ${draft.voiceWhen}`,
+      `Qué ocurrió: ${draft.voiceWhat}`,
+      `Quiénes estuvieron involucrados: ${draft.voiceInvolved}`,
+      `Cómo te afectó: ${draft.voiceImpact}`,
+      `Testigos: ${draft.voiceWitnesses}`
+    ].join("\n");
+    return [
+      "Tipo: Sugerencia e idea de mejora",
+      `Idea: ${draft.voiceIdea}`,
+      `Qué mejoraría o resolvería: ${draft.voiceBenefit}`
+    ].join("\n");
+  };
   async function options(owner:string,date?:string){
     extension.choices=[];
     const first=date??localDate(now);
@@ -91,6 +118,13 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
       extension={};return reply("survey_recorded","Gracias. Registré tu respuesta separando atención recibida y resolución. No cambié el estado del ticket por la encuesta.");
     }
     if(/^(?:corregir|me equivoque|corrijo)/.test(s)&&extension.category){
+      if(extension.category==="voice"){
+        const kind=extension.voiceKind??(/idea|mejora/i.test(extension.topic??"")?"suggestion":"complaint");
+        const phase=kind==="complaint"?"voice_when":"voice_idea";
+        extension={category:"voice",serviceId:extension.serviceId,topic:extension.topic,voiceKind:kind,
+          phase};
+        return reply("voice_detail",voicePrompt(phase));
+      }
       delete extension.summary;extension.phase="explain";
       return reply("correction","Cuéntame la explicación corregida. No registraré nada hasta confirmar el nuevo resumen.");
     }
@@ -102,7 +136,7 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
       (extension.category==="policies"
         ?classifiedService.categoria!=="Políticas y procedimientos"||classifiedService.idServicio!==extension.serviceId
         :extension.category==="voice"
-          ?classifiedService.categoria!=="Tu Voz en Trainmex"||classifiedService.idServicio!==extension.serviceId
+          ?classifiedService.categoria!=="Tu Voz en Trainmex"||(Boolean(extension.serviceId)&&classifiedService.idServicio!==extension.serviceId)
           :false);
     if(currentService&&isDifferentTopic&&text.length>=12&&!yes(s)&&s!=="no"){
       extension={};
@@ -175,9 +209,17 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
         else return reply("policies","Puedo orientarte sobre vacaciones, permisos, premios y procedimientos usando solo fuentes autorizadas. ¿Qué necesitas saber?");
       }else if(s==="3"&&(!menu?.category||menu.screen==="main_menu")||selected?.categoria==="Tu Voz en Trainmex"){
         extension={category:"voice",phase:"topic",serviceId:selected?.idServicio};
-        if(selected){extension.topic=selected.subcategoria??undefined;extension.phase="explain";}
-        if(selected&&text.length>35){extension.summary=text.slice(0,2000);extension.phase="summary";}
-        else return reply("voice_submenu",extension.topic?"Cuéntame lo que deseas comunicar, con los detalles necesarios. No investigamos ni prometemos anonimato en este canal identificado.":"Tu Voz en Trainmex:\n1. Quejas y denuncias\n2. Ideas y mejoras\nElige una opción. La autorización de contacto no generará cita ni seguimiento obligatorio.");
+        if(selected){
+          extension.topic=selected.subcategoria??undefined;
+          extension.voiceKind=/queja|denuncia/i.test(extension.topic??"")?"complaint":"suggestion";
+          if(text.length>35){
+            if(extension.voiceKind==="complaint")extension.voiceWhat=text.slice(0,1000);
+            else extension.voiceIdea=text.slice(0,1000);
+          }
+          extension.phase=extension.voiceKind==="complaint"?"voice_when":extension.voiceIdea?"voice_benefit":"voice_idea";
+          return reply("voice_detail",voicePrompt(extension.phase));
+        }
+        return reply("voice_submenu","Tu Voz en Trainmex:\n1. Quejas o denuncias\n2. Sugerencias e ideas de mejora\nElige una opción. No se genera una cita ni seguimiento automático.");
       }else return manager.handleMessage(phone,text,key);
     }
     if(extension.category==="policies"){
@@ -219,17 +261,45 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
     }
     if(extension.phase==="topic"){
       const options=catalog.filter(x=>x.categoria==="Tu Voz en Trainmex");
-      const chosen=options.find(x=>/queja|denuncia/.test(s)?/queja|denuncia/i.test(x.subcategoria??""):/idea|mejora/.test(s)?/idea|mejora/i.test(x.subcategoria??""):false)??options[Number(s)-1];
-      if(!chosen)return reply("voice_topic","Elige «Quejas y denuncias» o «Ideas y mejoras».");
-      extension.serviceId=chosen.idServicio;extension.topic=chosen.subcategoria??"";extension.phase="explain";
-      return reply("voice_explain","Cuéntame lo ocurrido o tu propuesta con detalles suficientes. No prometo anonimato ni investigo o resuelvo automáticamente.");
+      const chosen=options.find(x=>/queja|denuncia/.test(s)?/queja|denuncia/i.test(x.subcategoria??""):/sugerencia|idea|mejora/.test(s)?/idea|mejora/i.test(x.subcategoria??""):false)??options[Number(s)-1];
+      if(!chosen)return reply("voice_topic","Elige «Quejas o denuncias» o «Sugerencias e ideas de mejora».");
+      extension.serviceId=chosen.idServicio;extension.topic=chosen.subcategoria??"";
+      extension.voiceKind=/queja|denuncia/i.test(extension.topic)?"complaint":"suggestion";
+      extension.phase=extension.voiceKind==="complaint"?"voice_when":"voice_idea";
+      return reply("voice_detail",voicePrompt(extension.phase));
     }
-    if(extension.phase==="explain"){
-      if(text.length<20||text.length>2000)return reply("voice_detail","Cuéntame con algo más de detalle (hasta 2000 caracteres), sin contraseñas ni datos sensibles innecesarios.");
-      extension.summary=text;extension.phase="summary";
+    if(extension.phase?.startsWith("voice_")){
+      const value=text.replace(/\s+/g," ").trim();
+      if(value.length<2||value.length>1000)return reply("voice_detail","Cuéntamelo brevemente, con tus propias palabras (hasta 1000 caracteres).");
+      if(extension.phase==="voice_when"){
+        extension.voiceWhen=value;extension.phase=extension.voiceWhat?"voice_involved":"voice_what";
+        return reply("voice_detail",voicePrompt(extension.phase));
+      }
+      if(extension.phase==="voice_what"){
+        extension.voiceWhat=value;extension.phase="voice_involved";
+        return reply("voice_detail",voicePrompt(extension.phase));
+      }
+      if(extension.phase==="voice_involved"){
+        extension.voiceInvolved=value;extension.phase="voice_impact";
+        return reply("voice_detail",voicePrompt(extension.phase));
+      }
+      if(extension.phase==="voice_impact"){
+        extension.voiceImpact=value;extension.phase="voice_witnesses";
+        return reply("voice_detail",voicePrompt(extension.phase));
+      }
+      if(extension.phase==="voice_witnesses"){
+        extension.voiceWitnesses=value;
+      }else if(extension.phase==="voice_idea"){
+        extension.voiceIdea=value;extension.phase="voice_benefit";
+        return reply("voice_detail",voicePrompt(extension.phase));
+      }else if(extension.phase==="voice_benefit"){
+        extension.voiceBenefit=value;
+      }
+      extension.summary=voiceSummary(extension);extension.phase="summary";
+      return reply("voice_summary",`Revisa lo que compartiré con RH:\n${extension.summary}\n¿Confirmas que lo registre? Puedes confirmar, corregir o cancelar.`);
     }
     if(extension.phase==="summary"){
-      if(!yes(s))return reply("voice_summary",`Resumen de ${extension.topic}:\n${extension.summary}\n¿Confirmas que registre este relato? Puedes corregir o cancelar.`);
+      if(!yes(s))return reply("voice_summary",`Revisa lo que compartiré con RH:\n${extension.summary}\n¿Confirmas que lo registre? Puedes confirmar, corregir o cancelar.`);
       extension.phase="consent";return reply("voice_consent","¿Autorizas que personal de RH te contacte posteriormente? Sí/No. Es solo una anotación informativa; no genera una cita ni seguimiento en la herramienta.");
     }
     if(extension.phase==="consent"){

@@ -69,17 +69,17 @@ const CATEGORY_DETAILS = {
 
 /** @type {Array<{key: VoiceTopic; label: string}>} */
 const VOICE_OPTIONS = [
-  { key: "complaints", label: "Quejas y denuncias" },
-  { key: "ideas", label: "Ideas y mejoras" }
+  { key: "complaints", label: "Quejas o denuncias" },
+  { key: "ideas", label: "Sugerencias e ideas de mejora" }
 ];
 
 const VOICE_DETAILS = {
   complaints: {
-    label: "Quejas y denuncias",
+    label: "Quejas o denuncias",
     examples: "Puedes explicar brevemente una queja o una situación que quieras comunicar."
   },
   ideas: {
-    label: "Ideas y mejoras",
+    label: "Sugerencias e ideas de mejora",
     examples: "Puedes compartir una idea para mejorar un proceso o una forma de trabajo."
   }
 };
@@ -186,7 +186,7 @@ function showMainMenu(state, includeWelcome) {
 }
 
 function voiceSubmenuText() {
-  return `Tu Voz en Trainmex:\n1. Quejas y denuncias (una situación del entorno laboral que quieras comunicar).\n2. Ideas y mejoras (una propuesta para cambiar o mejorar un proceso).\n\nElige una opción o cuéntame brevemente de qué se trata. En esta etapa no se registran expedientes.`;
+  return `Tu Voz en Trainmex:\n1. Quejas o denuncias.\n2. Sugerencias e ideas de mejora.\n\nElige una opción o cuéntame brevemente de qué se trata. En esta etapa no se registran expedientes.`;
 }
 
 /**
@@ -581,7 +581,7 @@ export function createConversationManager(dependencies, sessionStore = new Map()
       return makeResult(
         collaboratorStatus,
         "clarify_voice_topic",
-        "¿Quieres compartir una queja o denuncia, o una idea de mejora? Responde 1 o 2.",
+        "¿Quieres compartir una queja o denuncia, o una sugerencia para mejorar? Responde 1 o 2.",
         classified.classification
       );
     }

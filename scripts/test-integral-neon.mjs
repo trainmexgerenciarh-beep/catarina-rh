@@ -113,8 +113,10 @@ if(process.argv.includes("--child")){
     assert.equal((await send("sí")).action,"remote_options");await send("1");const remoteReply=await send("confirmo");assert.equal(remoteReply.action,"remote_registered");
     const remote=(await observer.query("SELECT a.* FROM public.citas a JOIN public.tickets t USING(id_ticket) WHERE t.id_colaborador=$1 AND a.modalidad='REMOTA'",[owner])).rows[0];
     assert(remote);pass("Políticas sin fuente, indicador y ticket confirmados, agenda REMOTA compartida");
-    await send("menú principal");await send("3");await send("Ideas y mejoras");
-    await send("Idea sintética para mejorar la señalización del área de prueba.");await send("confirmo");const voiceId=key();
+    await send("menú principal");await send("3");await send("Sugerencias e ideas de mejora");
+    await send("Idea sintética para mejorar la señalización del área de prueba.");
+    await send("Ayudaría a que el personal encuentre las salidas con mayor rapidez.");
+    await send("confirmo");const voiceId=key();
     assert.equal((await send("no",voiceId)).action,"voice_registered");
     await child({text:"no",key:voiceId});
     assert.equal((await observer.query("SELECT count(*)::int n FROM public.denuncias WHERE id_colaborador=$1",[owner])).rows[0].n,1);
