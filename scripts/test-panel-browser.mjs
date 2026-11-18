@@ -110,7 +110,10 @@ try{
   await send("El pago semanal ficticio requiere una aclaración de prueba.");
   await page.getByText(/Revisa si lo entendí bien/).waitFor();
   assert.equal((await choose("Confirmar")).action,"payroll_ticket_created");
-  await send("no");
+  assert.equal(await page.getByRole("button",{name:"Sí, quiero una cita",exact:true}).count(),1);
+  assert.equal(await page.getByRole("button",{name:"No, gracias",exact:true}).count(),1);
+  await choose("No, gracias");
+  await page.getByText(/cerrado sin cita/i).waitFor();
   await page.getByRole("button",{name:"Menú principal",exact:true}).click();
   await page.getByRole("group",{name:"Confirmar regreso al menú principal"}).waitFor();
   assert.match((await choose("Volver al menú")).reply,/Tu Voz en Trainmex: Quejas e Ideas de Mejora/);
@@ -123,8 +126,8 @@ try{
   await send("menú principal");
   await choose("3. Tu Voz en Trainmex: Quejas e Ideas de Mejora.");
   await choose("Quejas o denuncias");
-  await send("La semana pasada");
   await send("El supervisor ficticio cambió el turno sin avisar.");
+  await send("La semana pasada");
   await send("El supervisor y dos compañeros del área.");
   await send("Me afectó personalmente y generó tensión en el equipo.");
   await send("Sí, dos compañeros estuvieron presentes.");
@@ -138,7 +141,7 @@ try{
   await send("Ayudaría a que el equipo encuentre las salidas más rápido.");
   await choose("Confirmar");
   assert.equal((await choose("No")).action,"voice_registered");
-  pass("Conversación UI: nómina/políticas y guía separada para quejas y sugerencias");
+  pass("Conversación UI: opciones de cita y guía empática para quejas y sugerencias");
   await page.goto(base+"/panel");await page.getByRole("heading",{name:/Acceso administrativo pendiente|Tu sesión no está activa/}).waitFor();
   await page.goto(base+"/login");await page.getByRole("heading",{name:"Te damos la bienvenida."}).waitFor();
   pass("Panel real cerrado y pantalla de acceso sin cuenta universal");

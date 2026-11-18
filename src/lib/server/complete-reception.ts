@@ -41,8 +41,8 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
   const yes=(s:string)=>/^(si|confirmo|si confirmo|correcto|de acuerdo)$/.test(s);
   const nav=(s:string)=>/^(menu(?: principal)?|volver|regresar|cancelar|inicio)$/.test(s);
   const voicePrompt=(phase:string)=>({
-    voice_when:"¿Cuándo ocurrió aproximadamente? Puedes decir una fecha o algo como «la semana pasada». Cuéntamelo con tus palabras.",
-    voice_what:"¿Qué ocurrió? Cuéntalo de forma objetiva y con tus palabras.",
+    voice_when:"¿Cuándo ocurrió aproximadamente? Puedes decir una fecha o algo como «la semana pasada».",
+    voice_what:"Lamento que estés pasando por esta situación. Cuéntame, con tus palabras, ¿qué ocurrió?",
     voice_involved:"¿Quiénes estuvieron involucrados? Puedes decir sus nombres o puestos, si los sabes.",
     voice_impact:"¿Cómo te afectó a ti, al trabajo o al ambiente del área?",
     voice_witnesses:"¿Hubo testigos? Indica quiénes o escribe «no hubo» o «no sé».",
@@ -120,7 +120,7 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
     if(/^(?:corregir|me equivoque|corrijo)/.test(s)&&extension.category){
       if(extension.category==="voice"){
         const kind=extension.voiceKind??(/idea|mejora/i.test(extension.topic??"")?"suggestion":"complaint");
-        const phase=kind==="complaint"?"voice_when":"voice_idea";
+        const phase=kind==="complaint"?"voice_what":"voice_idea";
         extension={category:"voice",serviceId:extension.serviceId,topic:extension.topic,voiceKind:kind,
           phase};
         return reply("voice_detail",voicePrompt(phase));
@@ -216,7 +216,7 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
             if(extension.voiceKind==="complaint")extension.voiceWhat=text.slice(0,1000);
             else extension.voiceIdea=text.slice(0,1000);
           }
-          extension.phase=extension.voiceKind==="complaint"?"voice_when":extension.voiceIdea?"voice_benefit":"voice_idea";
+           extension.phase=extension.voiceKind==="complaint"?"voice_when":extension.voiceIdea?"voice_benefit":"voice_idea";
           return reply("voice_detail",voicePrompt(extension.phase));
         }
         return reply("voice_submenu","Tu Voz en Trainmex:\n1. Quejas o denuncias\n2. Sugerencias e ideas de mejora\nElige una opción. No se genera una cita ni seguimiento automático.");
@@ -265,7 +265,7 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
       if(!chosen)return reply("voice_topic","Elige «Quejas o denuncias» o «Sugerencias e ideas de mejora».");
       extension.serviceId=chosen.idServicio;extension.topic=chosen.subcategoria??"";
       extension.voiceKind=/queja|denuncia/i.test(extension.topic)?"complaint":"suggestion";
-      extension.phase=extension.voiceKind==="complaint"?"voice_when":"voice_idea";
+      extension.phase=extension.voiceKind==="complaint"?"voice_what":"voice_idea";
       return reply("voice_detail",voicePrompt(extension.phase));
     }
     if(extension.phase?.startsWith("voice_")){
@@ -276,7 +276,7 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
         return reply("voice_detail",voicePrompt(extension.phase));
       }
       if(extension.phase==="voice_what"){
-        extension.voiceWhat=value;extension.phase="voice_involved";
+        extension.voiceWhat=value;extension.phase=extension.voiceWhen?"voice_involved":"voice_when";
         return reply("voice_detail",voicePrompt(extension.phase));
       }
       if(extension.phase==="voice_involved"){

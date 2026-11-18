@@ -15,3 +15,13 @@ naturales, no protocolarias.
 **How to apply:** usar este tono en mensajes conversacionales y simulaciones,
 conservando las reglas de no inventar políticas y no registrar nada antes de la
 confirmación explícita.
+
+Para quejas, empezar con empatía y preguntar primero qué ocurrió; después pedir
+cuándo ocurrió aproximadamente, quiénes participaron, el impacto y testigos.
+Tras confirmar un resumen de nómina, ofrecer la cita con opciones visibles de sí/no.
+
+**Why:** Trainmex pidió una guía de quejas más humana y controles de selección
+sencillos, en lugar de respuestas rígidas o de texto libre para decisiones cerradas.
+
+**How to apply:** mantener estas preguntas en ese orden y mostrar botones para
+decisiones cerradas; no extender la oferta de cita a Tu Voz, que no genera citas.

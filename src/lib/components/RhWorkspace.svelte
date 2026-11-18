@@ -387,6 +387,10 @@
       { label: 'Corregir', value: 'corregir' },
       { label: 'Cancelar', value: 'cancelar' }
     ];
+    if (action === 'payroll_ticket_created') return [
+      { label: 'Sí, quiero una cita', value: 'sí' },
+      { label: 'No, gracias', value: 'no' }
+    ];
     if (['payroll_no_booking', 'offer', 'policy_ticket', 'policy_missing', 'survey_attention', 'voice_consent'].includes(String(action))) return [
       { label: 'Sí', value: 'sí' },
       { label: 'No', value: 'no' }
