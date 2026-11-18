@@ -121,7 +121,7 @@ async function testAuthorizationAndWelcome() {
   assert.match(welcome.reply, /Hola, soy Catarina/);
   assert.match(welcome.reply, /1\. Tengo un problema con mi pago/);
   assert.match(welcome.reply, /2\. Tengo una duda sobre reglas de RH/);
-  assert.match(welcome.reply, /3\. Quiero presentar una queja o denuncia/);
+  assert.match(welcome.reply, /3\. Tu Voz en Trainmex: Quejas e Ideas de Mejora/);
   console.log("Acceso activo/denegado y bienvenida con tres opciones: PASS.");
 }
 
@@ -134,7 +134,8 @@ async function testMenuContextCommandsAndCorrection() {
   const payroll = await manager.handleMessage(activePhone, "1");
   assert.equal(payroll.action, "category_selected");
   assert.match(payroll.reply, /Nómina y prestaciones/);
-  assert.match(payroll.reply, /pago semanal, despensa, gasolina/);
+  assert.match(payroll.reply, /pago semanal, despensa/);
+  assert.doesNotMatch(payroll.reply, /gasolina/i);
 
   const narrative = "Me falta el pago semanal del viernes.";
   const firstDetail = await manager.handleMessage(activePhone, narrative);
@@ -160,7 +161,7 @@ async function testMenuContextCommandsAndCorrection() {
   assert.equal(unclearCorrection.action, "correction_applied");
   assert.match(unclearCorrection.reply, /1\. Tengo un problema con mi pago/);
   assert.match(unclearCorrection.reply, /2\. Tengo una duda sobre reglas de RH/);
-  assert.match(unclearCorrection.reply, /3\. Quiero presentar una queja o denuncia/);
+  assert.match(unclearCorrection.reply, /3\. Tu Voz en Trainmex: Quejas e Ideas de Mejora/);
   const changedCategory = await manager.handleMessage(activePhone, "2");
   assert.equal(changedCategory.action, "category_changed");
   assert.match(changedCategory.reply, /Políticas y procedimientos de RH/);

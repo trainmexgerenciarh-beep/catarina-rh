@@ -51,14 +51,14 @@ import { extractIncomingTextMessages } from "./whatsapp-message-processing.js";
 const CATEGORY_OPTIONS = [
   { key: "payroll", label: "Nómina y prestaciones" },
   { key: "policies", label: "Políticas y procedimientos de RH" },
-  { key: "voice", label: "Tu Voz en Trainmex" }
+  { key: "voice", label: "Tu Voz en Trainmex: Quejas e Ideas de Mejora" }
 ];
 
 const CATEGORY_DETAILS = {
   payroll: {
     label: "Nómina y prestaciones",
     examples:
-      "Puedes contarme sobre pago semanal, despensa, gasolina, recibo de nómina, premios, horas extra o descuentos."
+      "Puedes contarme sobre pago semanal, despensa, recibo de nómina, premios, horas extra o descuentos."
   },
   policies: {
     label: "Políticas y procedimientos de RH",
@@ -124,7 +124,7 @@ function explicitCategoryChoice(input) {
   ) {
     return "policies";
   }
-  if (/^(?:tu voz|tu voz en trainmex)$/u.test(input)) return "voice";
+  if (/^(?:tu voz|tu voz en trainmex(?:: quejas e ideas de mejora)?)$/u.test(input)) return "voice";
   return null;
 }
 
@@ -182,7 +182,7 @@ function showMainMenu(state, includeWelcome) {
   const welcome = includeWelcome
     ? "Hola, soy Catarina, recepcionista de RH."
     : "Menú principal:";
-  return `${welcome}\n\n¿En qué puedo ayudarte?\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Quiero presentar una queja o denuncia.\n\nTambién puedes contarme directamente qué necesitas.`;
+  return `${welcome}\n\n¿En qué puedo ayudarte?\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Tu Voz en Trainmex: Quejas e Ideas de Mejora.\n\nTambién puedes contarme directamente qué necesitas.`;
 }
 
 function voiceSubmenuText() {
@@ -473,7 +473,7 @@ export function createConversationManager(dependencies, sessionStore = new Map()
       return makeResult(
         collaboratorStatus,
         "correction_applied",
-        `No logré ubicar la corrección. Elige una opción:\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Quiero presentar una queja o denuncia.`,
+        `No logré ubicar la corrección. Elige una opción:\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Tu Voz en Trainmex: Quejas e Ideas de Mejora.`,
         classified.classification
       );
     }

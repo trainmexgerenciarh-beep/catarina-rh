@@ -24,20 +24,21 @@ await test("Identidad activa, inactiva, ausente y ambigua; cero tickets antes de
     assert.equal((await manager.handleMessage(`00000000000000${suffix}`, "hola")).action, "access_denied");
   }
   const menu = await manager.handleMessage(phone, "hola", "greeting");
-  assert.match(menu.reply, /1\. Tengo un problema con mi pago\.\n2\. Tengo una duda sobre reglas de RH\.\n3\. Quiero presentar una queja o denuncia\./s);
+  assert.match(menu.reply, /1\. Tengo un problema con mi pago\.\n2\. Tengo una duda sobre reglas de RH\.\n3\. Tu Voz en Trainmex: Quejas e Ideas de Mejora\./s);
   await manager.handleMessage(phone, "1", "payroll-menu");
   assert.equal(repo.snapshot().length, 0);
 });
 
-await test("Los ocho servicios numéricos, explicación, viernes y confirmación explícita", async () => {
-  for (let option = 1; option <= 8; option++) {
+await test("Las siete opciones visibles, explicación, viernes y confirmación explícita", async () => {
+  const serviceIdsByVisibleOption = ["1", "2", "4", "5", "6", "7", "8"];
+  for (let option = 1; option <= serviceIdsByVisibleOption.length; option++) {
     const repo = createMemoryTicketRepository();
     const manager = createPayrollReception(dependencies(), repo);
     await manager.handleMessage(phone, "1");
     const selected = await manager.handleMessage(phone, String(option));
     assert.equal(selected.action, "payroll_friday");
       const explainPrompt=await manager.handleMessage(phone, "06/11/2026");
-      if(option===1)assert.match(explainPrompt.reply,/premio de puntualidad y asistencia, el tiempo extra o la despensa/);
+      if(serviceIdsByVisibleOption[option - 1]==="1")assert.match(explainPrompt.reply,/premio de puntualidad y asistencia, el tiempo extra o la despensa/);
       const summary=await manager.handleMessage(phone,"El concepto no aparece en mi pago.");
       assert.equal(summary.action,"payroll_summary");
       assert.match(summary.reply,/Revisa si lo entendí bien/);
@@ -50,7 +51,7 @@ await test("Los ocho servicios numéricos, explicación, viernes y confirmación
     assert.equal(repo.snapshot().length, 0);
     const result = await manager.handleMessage(phone, "confirmo", `confirm-${option}`);
     assert.equal(result.action, "payroll_ticket_created");
-    assert.equal(repo.snapshot()[0].serviceId, String(option));
+    assert.equal(repo.snapshot()[0].serviceId, serviceIdsByVisibleOption[option - 1]);
     assert.equal(repo.snapshot()[0].resolvedAt, null);
     assert.match(result.reply, /no se reserva ninguna cita/);
     assert.equal(result.ticket.persistence, "simulation");
@@ -177,6 +178,21 @@ await test("Correcciones antes de confirmar; cancelar/menú/regresar nunca regis
     await fresh.handleMessage(phone, command);
   }
   assert.equal(repo.snapshot().length, 0);
+});
+
+await test("Menú de nómina omite gasolina sin alterar el catálogo activo", async () => {
+  const manager = createPayrollReception(dependencies(), createMemoryTicketRepository());
+  await manager.handleMessage(phone, "Hola", "menu-welcome");
+  const menu = await manager.handleMessage(phone, "1", "menu-payroll");
+  assert.equal(menu.action, "payroll_topic");
+  assert.match(menu.reply, /1\. Pago semanal/);
+  assert.doesNotMatch(menu.reply, /gasolina/i);
+  assert.equal((await dependencies().listActiveServices()).length, 15);
+  const gasoline = createPayrollReception(dependencies(), createMemoryTicketRepository());
+  await gasoline.handleMessage(phone, "1");
+  const naturalGasoline = await gasoline.handleMessage(phone, "Gasolina");
+  assert.equal(naturalGasoline.action, "payroll_friday");
+  assert.match(naturalGasoline.reply, /¿De qué viernes/);
 });
 
 await test("ID inventado/inactivo o cambio de catálogo no se registra; proveedor falla sin efectos", async () => {

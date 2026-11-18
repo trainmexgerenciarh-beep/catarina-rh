@@ -104,10 +104,12 @@
   let conversationText = '';
   let conversationBusy = false;
   let conversationError = '';
+  let confirmMainMenu = false;
+  let canReturnToMainMenu = false;
   const welcomeChoices = [
     { label: 'Tengo un problema con mi pago', value: '1' },
     { label: 'Tengo una duda sobre reglas de RH', value: '2' },
-    { label: 'Quiero presentar una queja o denuncia', value: '3' }
+    { label: 'Tu Voz en Trainmex: Quejas e Ideas de Mejora', value: '3' }
   ];
   const initialConversation: Message[] = [{
     from: 'catarina',
@@ -450,6 +452,7 @@
   async function sendConversationText(text: string) {
     const cleaned = text.trim();
     if (!cleaned || conversationBusy) return;
+    confirmMainMenu = false;
     conversationBusy = true;
     conversationError = '';
     messages = [...messages, { from: 'persona', text: cleaned }];
@@ -472,6 +475,7 @@
           .map(choice => ({ ...choice }));
       }
       messages = [...messages, { from: 'catarina', text: payload.reply, choices }];
+      canReturnToMainMenu = !['menu', 'welcome', 'reset'].includes(String(payload.action));
     } catch (reason) {
       conversationError = reason instanceof Error ? reason.message : 'No se pudo enviar el mensaje.';
     } finally {
@@ -513,6 +517,7 @@
 
   async function resetConversation() {
     conversationBusy = true;
+    confirmMainMenu = false;
     conversationError = '';
     try {
       const response = await fetch('/api/demo/conversation', {
@@ -524,12 +529,18 @@
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload.ok !== true) throw new Error(payload.error || 'El servidor no confirmó el reinicio de la sesión.');
       messages = [...initialConversation];
+      canReturnToMainMenu = false;
       notice = 'Sesión de demostración reiniciada.';
     } catch (reason) {
       conversationError = reason instanceof Error ? reason.message : 'No se pudo reiniciar la sesión.';
     } finally {
       conversationBusy = false;
     }
+  }
+
+  async function confirmReturnToMainMenu() {
+    confirmMainMenu = false;
+    await sendConversationText('menú principal');
   }
 
   async function logout() {
@@ -708,7 +719,13 @@
           </div>
           {#if notice}<div class="alert success" role="status">{notice}</div>{/if}
           <section class="conversation" aria-label="Simulación de conversación">
-            <div class="conversation-head"><div class="catarina-avatar">C</div><div><strong>Catarina</strong><span>Recepción de Recursos Humanos · modo de prueba</span></div><span class="session-lock">SESIÓN AISLADA</span></div>
+            <div class="conversation-head"><div class="catarina-avatar">C</div><div><strong>Catarina</strong><span>Recepción de Recursos Humanos · modo de prueba</span></div>{#if canReturnToMainMenu}<button class="conversation-menu-button" type="button" on:click={() => confirmMainMenu = true} disabled={conversationBusy}>Menú principal</button>{/if}<span class="session-lock">SESIÓN AISLADA</span></div>
+            {#if confirmMainMenu}
+              <div class="menu-reset-confirm" role="group" aria-label="Confirmar regreso al menú principal">
+                <div><strong>¿Volver al menú principal?</strong><span>Se perderá el avance sin guardar de esta solicitud. Los tickets ya registrados no se modifican.</span></div>
+                <div class="menu-reset-actions"><button type="button" on:click={() => confirmMainMenu = false} disabled={conversationBusy}>Seguir aquí</button><button type="button" on:click={confirmReturnToMainMenu} disabled={conversationBusy}>Volver al menú</button></div>
+              </div>
+            {/if}
             <div class="thread" aria-live="polite">
               {#if messages.length === 0}<div class="thread-empty"><span class="thread-rule"></span><strong>La conversación empieza aquí.</strong><p>Prueba una consulta sobre nómina, políticas o una cita.</p></div>{/if}
               {#each messages as message, messageIndex}
@@ -1000,6 +1017,8 @@
   .workspace-footer{display:flex;justify-content:space-between;gap:14px;margin-top:45px;padding:15px 0 3px;border-top:1px solid #e2e5dc;color:#a0aca3;font:8px 'DM Mono',monospace;letter-spacing:.08em}.workspace-footer i{margin:0 6px;color:#d28060;font-style:normal}
   .conversation{max-width:820px;margin:0 auto 34px;border:1px solid #e1e5dc;border-radius:8px;background:#fbfbf8;overflow:hidden}
   .conversation-head{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #e8ebe3;background:#f9faf5}.catarina-avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:12px 12px 12px 3px;background:#244e47;color:#f4e8d5;font:500 19px 'Fraunces',serif}.conversation-head>div:nth-child(2){display:grid;gap:3px}.conversation-head strong{color:#345448;font-size:11px}.conversation-head>div:nth-child(2) span{color:#89978d;font-size:9px}.session-lock{margin-left:auto;color:#9b8a61;font:9px 'DM Mono',monospace;letter-spacing:.08em}
+  .conversation-menu-button{min-height:32px;padding:0 10px;border:1px solid #cbd8cb;border-radius:4px;background:#fff;color:#31594a;font-size:10px;font-weight:700;cursor:pointer}.conversation-menu-button:disabled{opacity:.55;cursor:not-allowed}
+  .menu-reset-confirm{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 17px;border-bottom:1px solid #eadfc8;background:#fcf7e9;color:#725e3e;font-size:10px;line-height:1.5}.menu-reset-confirm>div:first-child{display:grid;gap:3px}.menu-reset-confirm strong{color:#594c35;font-size:11px}.menu-reset-actions{display:flex;flex-shrink:0;gap:7px}.menu-reset-actions button{min-height:32px;padding:0 10px;border:1px solid #d7ddcf;border-radius:4px;background:#fff;color:#466457;font-size:10px;font-weight:700;cursor:pointer}.menu-reset-actions button:last-child{border-color:#244e47;background:#244e47;color:#fff}.menu-reset-actions button:disabled{opacity:.55;cursor:not-allowed}
   .thread{min-height:330px;max-height:55vh;display:flex;flex-direction:column;gap:17px;padding:22px 19px;overflow-y:auto;background:radial-gradient(ellipse at 90% 4%,rgba(223,231,218,.35),transparent 42%),#f7f8f2}
   .conversation-choices{display:flex;flex-wrap:wrap;gap:8px;margin:-8px 33px 0}.conversation-choices button,.date-choice button{min-height:36px;padding:0 12px;border:1px solid #cbd8cb;border-radius:5px;background:#fff;color:#31594a;font-size:11px;font-weight:600;cursor:pointer}.conversation-choices button:hover:not(:disabled),.date-choice button:hover:not(:disabled){border-color:#4d806a;background:#eef4eb}.conversation-choices button:disabled,.date-choice button:disabled{opacity:.55;cursor:not-allowed}.date-choice{display:flex;align-items:end;flex-wrap:wrap;gap:8px;margin:-6px 33px 0}.date-choice label{display:grid;gap:5px;color:#75867a;font-size:10px}.date-choice input{height:36px;padding:0 9px;border:1px solid #dfe4da;border-radius:4px;background:#fff;color:#365448}.choice-hint{margin:0;padding:13px 16px;border-top:1px solid #e6e9e1;color:#74877a;font-size:10px}
   .thread-empty{display:grid;justify-items:center;align-content:center;flex:1;min-height:270px;text-align:center}.thread-rule{width:26px;height:2px;margin-bottom:14px;background:#d47b5d}.thread-empty strong{color:#426052;font:500 20px 'Fraunces',serif}.thread-empty p{color:#8b988e;font-size:10px}
@@ -1013,5 +1032,6 @@
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   @media(max-width:1050px){.workspace{grid-template-columns:218px minmax(0,1fr)}.sidebar{padding-inline:12px}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.filters{gap:6px}.filter-select select,.filter-select input{max-width:150px}}
   @media(max-width:760px){.workspace{display:block}.sidebar{position:relative;z-index:3;width:100%;height:auto;max-height:none;padding:13px 15px 9px;overflow:visible}.brand{padding:0}.workspace-tag{position:absolute;right:15px;top:12px;margin:0;padding:7px 9px;font-size:8px}.sidebar nav{display:flex;gap:15px;margin-top:13px;overflow:auto;scrollbar-width:none}.sidebar nav::-webkit-scrollbar{display:none}.nav-group{display:contents}.nav-group>p{display:none}.nav-group>a{flex:0 0 auto;min-height:31px;margin:0;padding:6px 9px;font-size:10px;background:#204441}.nav-mark{display:none}.nav-group>a.active{background:#e5e9de}.demo-card,.account-card{display:none}.topbar{height:51px;padding:0 17px}.content{padding:26px 17px 20px}.page-heading{align-items:flex-start;flex-direction:column;margin-bottom:19px}.heading-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.page-heading .button{min-height:36px}.topbar-right{gap:9px}.date-stamp{display:none}.metric-grid{gap:8px}.metric-card{min-height:128px;padding:13px}.metric-card>strong{font-size:26px}.metric-top{font-size:10px}.filters{align-items:stretch}.search-field{flex:1 1 100%}.filter-select select,.filter-select input{max-width:none;width:100%}.filter-select{flex:1 1 44%}.result-count{align-self:center}.quick-links{grid-template-columns:1fr}.workspace-footer{flex-direction:column;gap:7px}.export-card{align-items:flex-start;flex-wrap:wrap}.export-copy{min-width:calc(100% - 64px)}.integration-status>div:not(.integration-head){grid-template-columns:92px 1fr}.integration-status b{grid-column:2}.agenda-summary{align-items:flex-start;flex-direction:column;gap:9px}.conversation{margin-bottom:20px}.thread{min-height:280px}.page-heading h1{max-width:600px}.session-lock{font-size:8px}}
+  @media(max-width:600px){.conversation-head{flex-wrap:wrap;gap:8px}.conversation-head .session-lock{margin-left:auto}.conversation-menu-button{order:4}.menu-reset-confirm{align-items:flex-start;flex-direction:column}.menu-reset-actions{width:100%}.menu-reset-actions button{flex:1}}
   @media(max-width:430px){.workspace-tag{font-size:0;width:25px;height:25px;justify-content:center;padding:0;top:16px}.workspace-tag .live-dot{width:7px;height:7px}.sidebar nav{margin-right:-15px;padding-right:15px}.metric-grid{grid-template-columns:1fr 1fr}.metric-card{min-height:120px}.metric-card>p{font-size:9px}.topbar{padding:0 14px}.content{padding-inline:14px}.breadcrumb{gap:7px;font-size:10px}.mode-pill{font-size:8px}.welcome-strip{padding:15px}.welcome-strip strong{font-size:17px}.welcome-index{display:none}.modal-card{padding:18px}.modal-head h2{font-size:23px}.conversation-head{padding:12px}.conversation-head>div:nth-child(2) span{max-width:195px}.bubble{max-width:82%}.composer{gap:6px;padding:9px}.send-button{padding:0 10px}.privacy-line{font-size:8px}}
 </style>

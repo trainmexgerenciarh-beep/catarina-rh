@@ -45,7 +45,10 @@ function answer(action: string, reply: string): Result {
 }
 
 function serviceMenu(services: ActiveService[]): string {
-  return `¿Qué tipo de pago quieres aclarar? Puedes elegir una opción o contármelo con tus palabras.\n${services.map(
+  const menuServices = services.filter((service) =>
+    normalizePayrollInput(service.subcategoria ?? "") !== "gasolina"
+  );
+  return `¿Qué tipo de pago quieres aclarar? Puedes elegir una opción o contármelo con tus palabras.\n${menuServices.map(
     (service, index) => `${index + 1}. ${service.subcategoria}`
   ).join("\n")}\nElige un número o cuéntame qué ocurrió.`;
 }
@@ -231,11 +234,14 @@ export function createPayrollReception(
     }
 
     if (!draft.serviceId) {
-      const option = input.match(/^(?:opcion )?([1-8])[.)]?$/);
+      const menuServices = services.filter((service) =>
+        normalizePayrollInput(service.subcategoria ?? "") !== "gasolina"
+      );
+      const option = input.match(/^(?:opcion )?([1-7])[.)]?$/);
       const byLabel = services.find((service) =>
         normalizePayrollInput(service.subcategoria ?? "") === input);
       if (option || byLabel) {
-        draft.serviceId = (option ? services[Number(option[1]) - 1] : byLabel)!.idServicio;
+        draft.serviceId = (option ? menuServices[Number(option[1]) - 1] : byLabel)!.idServicio;
         draft.needsConcept = false;
         delete draft.correction;
         return advance(draft, services);
