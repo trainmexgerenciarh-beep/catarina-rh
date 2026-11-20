@@ -3,11 +3,15 @@ import pg from "pg";
 import {neonPoolOptions} from "../src/lib/server/postgres-config.ts";
 import {OWNER_EMAIL} from "../src/lib/server/admin-users.ts";
 import {libraryAction,libraryView} from "../src/lib/server/document-library.ts";
-import {groundedAnswer} from "../src/lib/server/institutional-sources.ts";
+import {createGroundedAnswer} from "../src/lib/server/institutional-sources.ts";
 import {contentHash,validateFragments,splitApprovedDocument,folderId} from "../src/lib/server/library-contract.ts";
 import {listLibraryTree} from "../src/lib/server/drive-library.ts";
 import {getProjectResources} from "../src/lib/server/project-resources.ts";
 import {spawnSync} from "node:child_process";
+const groundedAnswer=createGroundedAnswer(async request=>{
+  const prompt=String(request.contents),passages=JSON.parse(prompt.split("Pasajes aprobados: ")[1]);
+  return {text:JSON.stringify({answer:"La política indica que la solicitud se presenta a Recursos Humanos.",evidence:passages[0]})};
+});
 let groups=0;const pass=s=>{groups++;console.log(s+": PASS");};
 const owner={email:OWNER_EMAIL,role:"gerente"},manager={email:"synthetic-library@example.invalid",role:"generalista"};
 const rootId="syntheticLibraryRoot001",docId="syntheticLibraryDoc001",subId="syntheticLibraryChild01";
@@ -88,10 +92,14 @@ try{
   assert.equal(doc.version,"01");
   assert.deepEqual(doc.biblioteca.approval.fragments,splitApprovedDocument(content),"One-click approval stores the complete policy as bounded exact chunks");
   const restarted=spawnSync(process.execPath,["--input-type=module","-e",`
-    import {groundedAnswer} from './src/lib/server/institutional-sources.ts';
+     import {createGroundedAnswer} from './src/lib/server/institutional-sources.ts';
     let raw='';for await(const chunk of process.stdin)raw+=chunk;
     const {doc,content}=JSON.parse(raw);
-    const a=await groundedAnswer('solicitar vacaciones trabajador','Vacaciones',[doc],async()=>content);
+     const answer=createGroundedAnswer(async request=>{
+       const prompt=String(request.contents),passages=JSON.parse(prompt.split("Pasajes aprobados: ")[1]);
+       return {text:JSON.stringify({answer:"La política indica que la solicitud se presenta a RH.",evidence:passages[0]})};
+     });
+     const a=await answer('solicitar vacaciones trabajador','Vacaciones',[doc]);
     console.log(JSON.stringify({recovered:!!a,restricted:a?.text.includes('Detalle interno')??false}));
   `],{input:JSON.stringify({doc,content}),encoding:"utf8",env:{PATH:process.env.PATH}});
   assert.equal(restarted.status,0);assert.deepEqual(JSON.parse(restarted.stdout),{recovered:true,restricted:false});

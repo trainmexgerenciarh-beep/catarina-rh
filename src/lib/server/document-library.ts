@@ -2,7 +2,7 @@ import type pg from "pg";
 import type {Admin} from "./admin-auth.ts";
 import {isOwner} from "./admin-users.ts";
 import {driveId,groundedAnswer} from "./institutional-sources.ts";
-import {folderId,LIBRARY_LOCK,libraryError,splitApprovedDocument,type LibraryMeta} from "./library-contract.ts";
+import {contentHash,folderId,LIBRARY_LOCK,libraryError,splitApprovedDocument,type LibraryMeta} from "./library-contract.ts";
 import {driveMetadata,driveRequest,listLibraryTree,readLibraryDocument,type DriveRequest} from "./drive-library.ts";
 import {getProjectResources,parseSheetId} from "./project-resources.ts";
 type Row={id_fuente:string;nombre:string;categoria:string;url_drive:string;version:string|null;vigente_desde:string|null;activo:boolean;biblioteca:LibraryMeta|null};
@@ -32,11 +32,11 @@ export async function libraryView(pool:pg.Pool,actor:Admin){
     principal:isOwner(actor)};
 }
 /** Admin-only, read-only preview of a response grounded in approved Neon text. */
-export async function previewPolicyAnswer(pool:pg.Pool,actor:Admin,input:Record<string,unknown>){
+export async function previewPolicyAnswer(pool:pg.Pool,actor:Admin,input:Record<string,unknown>,answerer:typeof groundedAnswer=groundedAnswer){
   owner(actor);
   const id=identifier(input.id),question=text(input.question,500);
   if(question.length<4)libraryError("LIBRARY_INVALID_INPUT");
-  const c=await pool.connect();let begun=false;
+  const c=await pool.connect();let begun=false,released=false;
   try{
     await c.query("BEGIN READ ONLY");begun=true;
     await c.query("SET LOCAL statement_timeout='8s'");
@@ -62,14 +62,20 @@ export async function previewPolicyAnswer(pool:pg.Pool,actor:Admin,input:Record<
       ORDER BY f.id_fuente LIMIT 30`,[topic.subcategoria,topic.categoria])).rows as Row[];
     const sources=rows.map(row=>({...row,biblioteca:row.biblioteca??undefined}));
     if(!sources.some(source=>source.id_fuente===id))libraryError("LIBRARY_TEST_SOURCE_NOT_ACTIVE");
-    const answer=await groundedAnswer(question,String(topic.subcategoria),sources);
     await c.query("COMMIT");begun=false;
+    c.release();released=true;
+    const answer=await answerer(question,String(topic.subcategoria),sources);
+    if(answer){
+      const current=(await pool.query(`SELECT activo,biblioteca FROM public.fuentes WHERE id_fuente=$1`,[answer.sourceId])).rows[0];
+      if(!current?.activo||current.biblioteca?.status!=="APROBADO"||
+        contentHash(JSON.stringify(current.biblioteca))!==answer.proof)return {answer:null,sourceName:null,version:null};
+    }
     const source=answer?sources.find(row=>row.id_fuente===answer.sourceId):undefined;
     return {answer:answer?.text??null,sourceName:source?.nombre??null,version:source?.version??null};
   }catch(e){
     if(begun)await c.query("ROLLBACK").catch(()=>{});
     throw e;
-  }finally{c.release();}
+  }finally{if(!released)c.release();}
 }
 async function transaction<T>(pool:pg.Pool,actor:Admin,work:(c:pg.PoolClient)=>Promise<T>){
   const c=await pool.connect();let begun=false,committing=false,destroy=false;

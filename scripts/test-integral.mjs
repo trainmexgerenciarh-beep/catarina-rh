@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {scryptSync} from "node:crypto";
 import {verifyLogin,readSession,signSession,sameOrigin} from "../src/lib/server/admin-auth.ts";
 import {sendWhatsApp} from "../src/lib/server/whatsapp-outbound.ts";
-import {groundedAnswer,driveId} from "../src/lib/server/institutional-sources.ts";
+import {createGroundedAnswer,driveId} from "../src/lib/server/institutional-sources.ts";
 import {contentHash,splitApprovedDocument} from "../src/lib/server/library-contract.ts";
 import {previewPolicyAnswer} from "../src/lib/server/document-library.ts";
 import {OWNER_EMAIL} from "../src/lib/server/admin-users.ts";
@@ -34,10 +34,31 @@ assert.equal(network,0);pass("Transporte WhatsApp bloqueado sin efectuar petici�
 assert.throws(()=>driveId("https://attacker.invalid/document/123"));
 const source={id_fuente:"1",nombre:"Documento ficticio",categoria:"Vacaciones",url_drive:"https://docs.google.com/document/d/synthetic-document-only",version:"TEST",vigente_desde:"2026-01-01",activo:true};
 const extract="Las vacaciones de esta política ficticia requieren autorización previa por el procedimiento descrito en este documento de prueba.";
+let answerCalls=0;
+const groundedAnswer=createGroundedAnswer(async request=>{
+  answerCalls++;
+  const prompt=String(request.contents),passages=JSON.parse(prompt.split("Pasajes aprobados: ")[1]);
+  const question=prompt.match(/Pregunta: (.*)/)?.[1]??"";
+  return {text:JSON.stringify(/cu[aá]ndo/i.test(question)
+    ?{answer:"Solicítalas por escrito con al menos 10 días de anticipación.",evidence:"La solicitud de vacaciones debe presentarse por escrito con al menos 10 días de anticipación."}
+    :{answer:"La política exige autorización previa para solicitar vacaciones.",evidence:passages[0]})};
+});
 source.biblioteca={v:1,kind:"document",driveId:"synthetic-document-only",status:"APROBADO",type:"POLITICA/PREGUNTAS_TRABAJADOR",hash:contentHash(extract),
   approval:{actor:"synthetic@example.invalid",at:"2026-01-01T12:00:00Z",hash:contentHash(extract),version:"TEST",scope:"Respuesta ficticia para trabajadores",fragments:[extract],validFrom:"2026-01-01"}};
 const grounded=await groundedAnswer("¿Las vacaciones requieren autorización previa?","Vacaciones",[source],async()=>extract);
-assert(grounded&&grounded.text.includes(extract)&&grounded.text.includes("versión TEST"));
+assert(grounded&&grounded.text.includes("La política exige autorización previa")&&!grounded.text.includes(extract)&&grounded.text.includes("versión TEST"));
+const timingExcerpt="La solicitud de vacaciones debe presentarse por escrito con al menos 10 días de anticipación.";
+const timingPolicy={...source,biblioteca:{...source.biblioteca,hash:contentHash(timingExcerpt),approval:{...source.biblioteca.approval,hash:contentHash(timingExcerpt),fragments:[timingExcerpt]}}};
+const beforeUnsupported=answerCalls;
+assert.equal(await groundedAnswer("¿Cuándo solicito mis vacaciones?","Vacaciones",[source]),null,
+  "A timing questions without timing evidence must not be answered");
+assert.equal(answerCalls,beforeUnsupported,"No model call is made without matching evidence");
+const timingAnswer=await groundedAnswer("¿Cuándo solicito mis vacaciones?","Vacaciones",[timingPolicy]);
+assert.match(timingAnswer.text,/10 días/);assert(!timingAnswer.text.includes(timingExcerpt));
+await assert.rejects(()=>createGroundedAnswer(async()=>({text:'{"answer":"La respuesta inventa 99 días.","evidence":"Texto que no existe en la política aprobada."}'}))
+  ("¿Cuándo solicito mis vacaciones?","Vacaciones",[timingPolicy]),e=>e.message==="POLICY_ANSWER_UNSUPPORTED_EVIDENCE");
+await assert.rejects(()=>createGroundedAnswer(async()=>{throw new Error("private provider detail");})
+  ("¿Las vacaciones requieren autorización previa?","Vacaciones",[source]),e=>e.message==="POLICY_ANSWER_GENERATION_FAILED");
 let liveDriveReads=0;
 assert((await groundedAnswer("vacaciones autorización previa","Vacaciones",[source],async()=>{liveDriveReads++;throw new Error("Drive must not be called in a worker turn");})));
 assert.equal(liveDriveReads,0);
@@ -52,15 +73,18 @@ const permissionsPolicy={...source,id_fuente:"2",nombre:"POLÍTICA PARA LA GESTI
 const preferred=await groundedAnswer("¿Qué dice la política de vacaciones?","Vacaciones",[permissionsPolicy,vacationPolicy]);
 assert.equal(preferred?.sourceId,"1","The service-specific policy title wins over a related policy that only mentions vacations");
 const previewSql=[];let previewConnections=0;
-const previewPool={async connect(){previewConnections++;return {async query(sql){
+const previewPool={async query(sql){
+  if(String(sql).includes("SELECT activo,biblioteca"))return {rows:[{activo:true,biblioteca:vacationPolicy.biblioteca}]};
+  return {rows:[]};
+},async connect(){previewConnections++;return {async query(sql){
   previewSql.push(String(sql));
   if(String(sql).includes("FROM public.servicios"))return {rows:[{id_servicio:"11",categoria:"Políticas y procedimientos",subcategoria:"Vacaciones"}]};
   if(String(sql).includes("FROM public.fuentes f"))return {rows:[permissionsPolicy,vacationPolicy]};
   if(String(sql).includes("FROM public.fuentes WHERE id_fuente=$1"))return {rows:[vacationPolicy]};
   return {rows:[]};
 },release(){}};}};
-const preview=await previewPolicyAnswer(previewPool,{email:OWNER_EMAIL,role:"gerente"},{id:"1",question:"¿Qué dice la política de vacaciones?"});
-assert.equal(preview.sourceName,"POLÍTICA DE VACACIONES");assert.equal(preview.version,"TEST");assert(preview.answer.includes(extract));
+const preview=await previewPolicyAnswer(previewPool,{email:OWNER_EMAIL,role:"gerente"},{id:"1",question:"¿Qué dice la política de vacaciones?"},groundedAnswer);
+assert.equal(preview.sourceName,"POLÍTICA DE VACACIONES");assert.equal(preview.version,"TEST");assert(!preview.answer.includes(extract));
 assert(previewSql.some(q=>q==="BEGIN READ ONLY"));
 assert(!previewSql.some(q=>/\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i.test(q)));
 await assert.rejects(()=>previewPolicyAnswer(previewPool,{email:"manager@example.invalid",role:"generalista"},{id:"1",question:"vacaciones"}),

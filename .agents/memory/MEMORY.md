@@ -7,4 +7,5 @@
 - [Importación de directorio](directory-import-safety.md) — confirmar altas en UI, no sobrescribir registros ni desactivar ausentes; centro no se inventa.
 - [Biblioteca documental RH](biblioteca-documental-rh.md) — aprobación simple de políticas completas por el principal; procedimientos siguen restringidos a RH.
 - [Voz de Catarina](voz-catarina.md) — respuestas breves, cálidas y naturales; explica límites sin jerga ni repetir mecánicamente lo que escribió la persona.
+- [Respuestas documentales](respuestas-documentales.md) — resumir solo pasajes aprobados, responder con claridad y citar fuente; abstenerse cuando falte evidencia.
 - [Ritmo de trabajo Catarina](ritmo-trabajo-catarina.md) — tras un diagnóstico concreto, avanzar a un cambio pequeño y verificable sin prolongar rondas explicativas.

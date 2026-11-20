@@ -24,12 +24,19 @@ const messages:Record<string,string>={
   LIBRARY_TEST_SOURCE_NOT_ACTIVE:"Solo puedes probar políticas activas para colaboradores.",
   LIBRARY_TEST_TOPIC_UNAVAILABLE:"No encontré un tema activo del catálogo que coincida con esta política.",
   LIBRARY_INVALID_INPUT:"Escribe una pregunta de entre 4 y 500 caracteres.",
+  POLICY_ANSWER_INVALID_JSON:"No pude preparar un resumen confiable. Inténtalo de nuevo.",
+  POLICY_ANSWER_INVALID_FORMAT:"No pude preparar un resumen confiable. Inténtalo de nuevo.",
+  POLICY_ANSWER_UNSUPPORTED_EVIDENCE:"No pude verificar el resumen contra la política. No mostraré una respuesta dudosa.",
+  POLICY_ANSWER_UNSUPPORTED_NUMBER:"No pude comprobar los datos de la respuesta. No mostraré una respuesta dudosa.",
+  POLICY_ANSWER_GENERATION_FAILED:"No pude consultar a Catarina en este momento. Inténtalo de nuevo.",
+  "GEMINI_API_KEY is not configured":"La conexión de respuestas de Catarina no está configurada.",
   COMMIT_OUTCOME_UNKNOWN:"El acuse de guardado es incierto. Recarga la biblioteca antes de repetir."
 };
 function failure(e:unknown){
-  const code=e instanceof PersistenceError?e.code:"LIBRARY_UNAVAILABLE";
+  const code=e instanceof PersistenceError?e.code:
+    e instanceof Error&&/^POLICY_ANSWER_/.test(e.message)?e.message:"LIBRARY_UNAVAILABLE";
   return Response.json({code,error:messages[code]??"No se confirmó la operación. Revisa enlace, formato y permisos; no se publicó contenido."},
-    {status:code==="ACCESS_DENIED"?403:400,headers});
+    {status:code==="ACCESS_DENIED"?403:code.startsWith("POLICY_ANSWER")?502:400,headers});
 }
 export const GET:RequestHandler=async({cookies})=>{
   const a=await readAccessSession(cookies.get("rh_session"));
