@@ -1,9 +1,12 @@
-/** Two gates: application approval AND explicit destination allowlist.
- * No application path currently supplies the approval capability.
- * Scheduled jobs only prepare; never call this transport automatically.
- */
-export type OutboundMessage = {to:string;kind:"text";text:string;lastInboundAt:number} |
-  {to:string;kind:"template";name:string;language:string;components?:unknown[]};
+/** Two gates: explicit app approval AND explicit destination allowlist. */
+type InteractiveButton = {id:string;title:string};
+type InteractiveRow = {id:string;title:string;description?:string};
+export type OutboundMessage =
+  {to:string;kind:"text";text:string;lastInboundAt:number} |
+  {to:string;kind:"template";name:string;language:string;components?:unknown[]} |
+  {to:string;kind:"interactive";interactive:
+    {type:"button";body:string;buttons:InteractiveButton[]} |
+    {type:"list";body:string;buttonText:string;rows:InteractiveRow[]};lastInboundAt:number};
 export class OutboundFailure extends Error{
   certainty:"RETRYABLE_REJECTED"|"PERMANENT_REJECTED"|"UNKNOWN";
   httpStatus:number|null;
@@ -19,12 +22,34 @@ export async function sendWhatsApp(message:OutboundMessage,approval:{reviewed:tr
   if(!/^\d{8,15}$/.test(message.to)||!allow.includes(message.to))throw new Error("DESTINATION_NOT_APPROVED");
   const token=process.env.WHATSAPP_ACCESS_TOKEN,phoneId=process.env.WHATSAPP_PHONE_NUMBER_ID;
   if(!token||!phoneId||!/^\d+$/.test(phoneId))throw new Error("WHATSAPP_CONFIGURATION_REQUIRED");
-  if(message.kind==="text"&&(!Number.isFinite(message.lastInboundAt)||message.lastInboundAt>Date.now()||
+  if(message.kind!=="template"&&(!Number.isFinite(message.lastInboundAt)||message.lastInboundAt>Date.now()||
     Date.now()-message.lastInboundAt>=24*3600000))throw new Error("APPROVED_TEMPLATE_REQUIRED");
   if(message.kind==="template"&&(!/^[a-z0-9_]+$/.test(message.name)||!/^[a-z]{2}(?:_[A-Z]{2})?$/.test(message.language)))
     throw new Error("INVALID_TEMPLATE_CONFIGURATION");
-  const body=message.kind==="text"?{type:"text",text:{body:message.text}}:
-    {type:"template",template:{name:message.name,language:{code:message.language},components:message.components??[]}};
+  let body:Record<string,unknown>;
+  if(message.kind==="text"){
+    if(!message.text.trim()||message.text.length>4096)throw new Error("INVALID_TEXT_MESSAGE");
+    body={type:"text",text:{body:message.text}};
+  }else if(message.kind==="template"){
+    body={type:"template",template:{name:message.name,language:{code:message.language},components:message.components??[]}};
+  }else{
+    const item=message.interactive;
+    if(!item.body.trim()||item.body.length>1024)throw new Error("INVALID_INTERACTIVE_BODY");
+    if(item.type==="button"){
+      if(item.buttons.length<1||item.buttons.length>3||item.buttons.some(b=>
+        !/^[A-Za-z0-9:_-]{1,256}$/.test(b.id)||!b.title.trim()||b.title.length>20))
+        throw new Error("INVALID_INTERACTIVE_BUTTONS");
+      body={type:"interactive",interactive:{type:"button",body:{text:item.body},
+        action:{buttons:item.buttons.map(b=>({type:"reply",reply:{id:b.id,title:b.title}}))}}};
+    }else{
+      if(item.rows.length<1||item.rows.length>10||item.buttonText.length>20||
+        !item.buttonText.trim()||item.rows.some(r=>!/^[A-Za-z0-9:_-]{1,256}$/.test(r.id)||
+          !r.title.trim()||r.title.length>24||(r.description?.length??0)>72))
+        throw new Error("INVALID_INTERACTIVE_LIST");
+      body={type:"interactive",interactive:{type:"list",body:{text:item.body},
+        action:{button:item.buttonText,sections:[{title:"Opciones",rows:item.rows}]} }};
+    }
+  }
   let r:Response;
   try{r=await request(`https://graph.facebook.com/v27.0/${phoneId}/messages`,{
       method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},

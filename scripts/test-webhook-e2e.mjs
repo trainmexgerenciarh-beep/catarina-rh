@@ -73,6 +73,10 @@ async function draft(c){
   }
   return prefix;
 }
+async function chooseFirstAppointment(c){
+  for(const option of ["1","1","1"])await c.send(option); // semana, día, hora
+  return c.send("confirmo");
+}
 await test("HMAC RAW, ausente/incorrecta y payload malformado: cero identidad/SQL",async()=>{
   const c=fixture();
   assert.equal((await c.post({request:signedRequest(envelope([]),secret,false)})).status,401);
@@ -96,10 +100,11 @@ await test("Resumen confirmado, lote duplicado y colision del mismo ID",async()=
 });
 await test("Reserva, reprogramacion, cancelacion, reintento antiguo y cierre expreso",async()=>{
   const c=fixture();await draft(c);await c.send("confirmo");await c.send("si");
-  await c.send("1");const book=await c.send("confirmo");
+  const book=await chooseFirstAppointment(c);
   assert.equal(book.status,200);
   const first=c.db.snapshot().appointments[0];
-  await c.send("reprogramar cita");await c.send("confirmo");await c.send("1");await c.send("confirmo");
+  await c.send("reprogramar cita");await c.send("confirmo");
+  await chooseFirstAppointment(c);
   const moved=c.db.snapshot().appointments[0];assert.equal(first.id,moved.id);assert.notEqual(first.start,moved.start);
   assert.equal((await c.send("confirmo",book.id)).status,200);
   assert.equal(c.db.snapshot().appointments[0].start,moved.start);
@@ -112,7 +117,7 @@ await test("Reserva, reprogramacion, cancelacion, reintento antiguo y cierre exp
 });
 await test("Lote parcial, fallo antes COMMIT, replay de prefijo y sufijo pendiente",async()=>{
   const c=fixture();const prefix=await draft(c);
-  const batch=envelope([...prefix,...["confirmo","si","1","confirmo","consultar cita"]
+  const batch=envelope([...prefix,...["confirmo","si","1","1","1","confirmo","consultar cita"]
     .map((text,i)=>message(`batch-${i}`,text))]);
   c.db.fault="receipt";
   assert.equal((await c.post({request:signedRequest(batch)})).status,503);
@@ -128,7 +133,7 @@ await test("COMMIT incierto, reinicio sin borrador y recuperacion durable simula
   const c=fixture();await draft(c);c.loseNextCommit();
   const result=await c.send("confirmo");assert.equal(result.status,503);
   c.restart();assert.equal((await c.send("confirmo",result.id)).status,200);
-  await c.send("agendar cita");await c.send("1");c.loseNextCommit();
+  await c.send("agendar cita");await c.send("1");await c.send("1");await c.send("1");c.loseNextCommit();
   const booked=await c.send("confirmo");assert.equal(booked.status,503);
   c.restart();assert.equal((await c.send("confirmo",booked.id)).status,200);
   await c.send("consultar cita");

@@ -216,6 +216,31 @@ esquema/contexto actual de 14 tablas descrito arriba.
 - Google Drive no fue editado; ChatGPT/Trainmex actualizarán LOS TRES apartados
   rectores después de revisar el reporte.
 
+## Cierre de WhatsApp — respuestas integradas, salida aún apagada
+
+- El webhook ahora puede convertir las respuestas existentes de Catarina a
+  mensajes de texto o listas/botones de WhatsApp; las selecciones regresan al
+  mismo motor como opciones, sin duplicar reglas de conversación.
+- La firma HMAC sobre el cuerpo RAW, la identificación activa y la persistencia
+  existentes se conservan. No se cambió Neon, Meta ni ningún Secret.
+- La salida real requiere **dos controles**: `WHATSAPP_WEBHOOK_REPLY_ENABLED=true`
+  y `WHATSAPP_OUTBOUND_APPROVED=true`, además de incluir el número exacto en
+  `WHATSAPP_OUTBOUND_ALLOWLIST`. Los tres controles están ausentes ahora; no hay
+  envío automático aunque los cinco Secrets Meta estén configurados.
+- Se usa la hora del evento entrante para respetar la ventana de 24 horas.
+  Un mensaje antiguo o sin hora no se envía como texto: requiere una plantilla
+  aprobada y queda sin confirmar si no está disponible.
+- La repetición durable de un evento no vuelve a enviar una respuesta. Si Meta
+  acepta un mensaje pero se pierde el acuse, la app no lo reenvía a ciegas; sin
+  una cola durable de salida no se promete entrega exactamente una vez.
+- `npm run test:outbound` prueba el transporte con solicitudes simuladas;
+  `npm run test:webhook:e2e` cubre HMAC, opciones y efectos con base ficticia.
+  Los detalles, límites y reporte para los tres documentos maestros están en
+  [Cierre controlado de WhatsApp](HITOS/CATARINA_WHATSAPP_CIERRE_2026-11-20.md).
+- No se ha hecho una llamada a Graph API, envío real, piloto ni publicación.
+  La primera ida y vuelta real queda detenida hasta autorización expresa y
+  confirmación del número de prueba y del destino autorizado.
+
 ## Antecedente 02-C3 — integración real controlada, webhook aún simulado entonces
 
 - [Informe, evidencia, limpieza y material para los tres apartados maestros](docs/ITERACION_02_C3.md).
@@ -314,7 +339,11 @@ npm run check:integrations
 
 `check:integrations` ejecuta una consulta de solo lectura a `information_schema.tables` para comprobar las 11 tablas existentes en Neon y realiza una llamada breve a Gemini con el SDK oficial `@google/genai`. Requiere los Secrets `DATABASE_URL` y `GEMINI_API_KEY`.
 
-El webhook de WhatsApp está disponible en `/api/whatsapp/webhook`. La verificación GET requiere `WHATSAPP_VERIFY_TOKEN`; el POST requiere la firma `X-Hub-Signature-256` comprobada con `WHATSAPP_APP_SECRET` y no guarda mensajes.
+El webhook está en `/api/whatsapp/webhook`: GET verifica con
+`WHATSAPP_VERIFY_TOKEN`; POST valida `X-Hub-Signature-256` con HMAC-SHA256 sobre
+bytes RAW. Usa la identidad activa y guarda solo el estado/recibo mínimo
+necesario para deduplicar y recuperar operaciones. La salida real permanece
+apagada salvo los dos controles y la lista permitida descritos arriba.
 
 ## Iteración técnica 01: recepción, menú y contexto
 

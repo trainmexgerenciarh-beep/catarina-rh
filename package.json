@@ -22,6 +22,7 @@
     "test:preactivation": "node scripts/test-preactivation.mjs",
     "test:auth:browser": "node scripts/test-auth-browser.mjs",
     "test:webhook": "node scripts/test-whatsapp-signature.mjs",
+    "test:outbound": "node scripts/test-whatsapp-outbound.mjs",
     "test:processing": "node scripts/test-whatsapp-processing.mjs",
     "test:conversation": "node scripts/test-whatsapp-conversation.mjs",
     "test:classifier": "node scripts/test-gemini-classifier.mjs",

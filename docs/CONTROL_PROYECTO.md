@@ -1,10 +1,48 @@
 # Catarina RH — registro técnico para Gestión del Proyecto
 
-Fecha de corte: 13 de noviembre de 2026.
+Fecha de corte: 20 de noviembre de 2026.
 Fuente funcional: Maestro v1.2, Plano base v1.1/adenda 1.2 y Gestión del Proyecto
 del documento oficial. Este registro documenta ejecución y evidencia en el
 repositorio; **no sustituye ni modifica la aceptación o tablero de Google Drive**.
 ChatGPT/Trainmex validan, aceptan y autorizan; Replit programa y prueba.
+
+## Cierre de WhatsApp bidireccional — 20 de noviembre de 2026
+
+**RESPUESTAS CONECTADAS EN CÓDIGO / SALIDA REAL OFF / PRIMER ENVÍO PENDIENTE DE AUTORIZACIÓN.**
+
+- Se integró el resultado de los motores existentes con WhatsApp Cloud API:
+  texto, listas y botones. Las respuestas de lista/botón regresan como la opción
+  equivalente del motor; no se duplican flujos de Nómina, Políticas, Tu Voz o Agenda.
+- El webhook conserva GET, HMAC-SHA256 sobre bytes RAW, validación completa del
+  lote, identificación de colaborador activo y recuperación/idempotencia durable.
+  Una selección de persona no autorizada no recibe respuesta de negocio.
+- Salida real exige las tres condiciones: `WHATSAPP_WEBHOOK_REPLY_ENABLED=true`,
+  `WHATSAPP_OUTBOUND_APPROVED=true` y destinatario exacto en
+  `WHATSAPP_OUTBOUND_ALLOWLIST`. Los tres controles se observaron AUSENTES en
+  este entorno. Los cinco Secrets `WHATSAPP_*` de conexión/firma están PRESENTES;
+  no se leyeron sus valores ni se cambió ninguno.
+- No se hizo ninguna solicitud a Graph API, no se verificó vigencia del token ni
+  se consultó el número configurado. No se envió WhatsApp ni se publicó.
+- La hora provista por Meta gobierna la ventana de 24 horas. Si el evento no trae
+  hora válida o llega fuera de ventana, el transporte falla cerrado; requeriría
+  una plantilla aprobada y configurada.
+- Un acuse positivo significa **aceptado por Meta**, no leído ni entregado al
+  teléfono. Eventos ya procesados no vuelven a enviar. Si la respuesta externa
+  queda incierta, se informa HTTP 503 y no se reintenta a ciegas; sin un outbox
+  durable, una respuesta podría perderse. No se promete entrega exactamente una vez.
+- PASS: `test:outbound` (6 grupos, HTTP falso sin red), `test:webhook:e2e`
+  (6 grupos, HMAC y SQL ficticios), `test:integral` (12 grupos),
+  `test:conversation`, `test:webhook` HTTPS de desarrollo (200/401/401, remitente
+  sintético no registrado), `check` (0 errores/avisos) y `build`.
+  Ninguna prueba hizo COMMIT ni modificó Neon; la comprobación HMAC del servidor
+  solo pudo consultar la identidad sintética. `test:processing` con Gemini real
+  no se volvió a ejecutar en este cierre.
+- Primera prueba real pendiente: confirmar el número de prueba visible en Meta,
+  el destinatario que Trainmex controla/autoriza, y habilitar los tres controles
+  solo tras aprobación expresa. La prueba debe ser una sola conversación acotada;
+  no habilita mensajes a colaboradores.
+- Evidencia y resumen para actualizar los tres apartados maestros:
+  [Hito de cierre WhatsApp](HITOS/CATARINA_WHATSAPP_CIERRE_2026-11-20.md).
 
 ## Biblioteca simple de políticas — 13 de noviembre de 2026
 

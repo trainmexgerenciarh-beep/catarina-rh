@@ -61,8 +61,10 @@ try {
   if (validSignature.status !== 200) {
     throw new Error(`Firma válida: se esperaba 200, se recibió ${validSignature.status}.`);
   }
-  assert.deepEqual(await validSignature.json(), { received: true });
-  console.log("Firma válida: HTTP 200.");
+  const accepted = await validSignature.json();
+  assert.equal(accepted.received, true);
+  assert.equal(accepted.outbound, "OFF");
+  console.log("Firma válida: HTTP 200; transporte saliente OFF.");
 
   const invalid = await post(invalidSignature);
   if (invalid.status !== 401) {

@@ -97,7 +97,8 @@ async function run(){
         method:"POST",headers:req.headers,body:await req.text()});
     }
     const send=(text,id=prefix+"live-"+(++seq))=>live([message(id,text)]);
-    const assertOK=async r=>{assert.equal(r.status,200);assert.deepEqual(await r.json(),{received:true});};
+    const assertOK=async r=>{assert.equal(r.status,200);const body=await r.json();
+      assert.equal(body.received,true);assert.equal(body.outbound,"OFF");};
     const fixtureTickets=async()=>(await pool.query(`SELECT id_ticket::text AS id,
       id_mensaje_confirmacion AS event,estado,cerrado_en,resuelto_en FROM public.tickets
       WHERE id_colaborador=$1 ORDER BY id_ticket`,[owner])).rows;
