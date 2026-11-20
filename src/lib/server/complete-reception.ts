@@ -146,9 +146,9 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
       const rows=await agenda.forOwner(owner);
       return reply("agenda_query",rows.length?rows.map(a=>`Cita ${a.id}: ${displayAppointment(Date.parse(a.start))}, ${a.modality}, ticket RH-${a.ticketId}.`).join("\n"):"No hay citas programadas a tu nombre.");
     }
-    if(/^(cancelar|reprogramar)(?: (?:la|mi))? cita(?: \d+)?$/.test(s)){
+    if(/^(cancelar|reprogramar)(?: (?:la|mi))? cita(?: (\d+|sim-cita-\d+))?$/.test(s)){
       const rows=await agenda.forOwner(owner);
-      const n=s.match(/\d+$/)?.[0],chosen=n?rows.find(r=>r.id===n):rows.length===1?rows[0]:null;
+      const n=s.match(/cita (\d+|sim-cita-\d+)$/)?.[1],chosen=n?rows.find(r=>r.id.toLowerCase()===n):rows.length===1?rows[0]:null;
       if(chosen){
         extension={category:"policies",phase:s.startsWith("cancelar")?"cancel":"move",ticketId:chosen.ticketId,appointmentId:chosen.id,modality:chosen.modality};
         return reply("remote_intent",`¿Confirmas ${s.startsWith("cancelar")?"cancelar":"reprogramar"} la cita ${displayAppointment(Date.parse(chosen.start))}? Responde «confirmo» o «no». El ticket no se marca resuelto.`);

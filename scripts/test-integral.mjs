@@ -130,10 +130,27 @@ const policyQuery=demo.read("consultas").find(row=>row.resultado==="documentacio
 assert(policyQuery,"The missing-policy consultation keeps its ticket link");
 const linkedTicket=demo.read("tickets").find(row=>row.id_ticket===policyQuery.id_ticket);
 assert(linkedTicket,"The remote appointment offer must retain the created ticket");
-const linkedRemoteAppointment=demo.read("citas").find(row=>row.id_ticket===policyQuery.id_ticket);
-assert(linkedRemoteAppointment&&linkedRemoteAppointment.modalidad==="REMOTA"&&linkedRemoteAppointment.estado==="PROGRAMADA",
-  "The confirmed remote appointment remains linked to the consultation ticket");
-pass("Simulación políticas sin fuente, consulta/faltante/ticket y cita remota");
+  const linkedRemoteAppointment=demo.read("citas").find(row=>row.id_ticket===policyQuery.id_ticket);
+  assert(linkedRemoteAppointment&&linkedRemoteAppointment.modalidad==="REMOTA"&&linkedRemoteAppointment.estado==="PROGRAMADA",
+    "The confirmed remote appointment remains linked to the consultation ticket");
+  const appointmentId=linkedRemoteAppointment.id_cita;
+  const reprogramIntent=await send(`reprogramar cita ${appointmentId}`);
+  assert.equal(reprogramIntent.action,"remote_intent");
+  assert.equal((await send("confirmo")).action,"remote_options");
+  assert.equal((await send("1")).action,"confirmation");
+  assert.equal((await send("confirmo")).action,"remote_registered");
+  const reprogrammed=demo.read("citas").filter(row=>row.id_ticket===policyQuery.id_ticket&&row.estado==="PROGRAMADA");
+  assert.equal(reprogrammed.length,1);
+  assert.equal(reprogrammed[0].id_cita,appointmentId,"Rescheduling keeps the same appointment ID");
+  assert.equal(reprogrammed[0].id_ticket,policyQuery.id_ticket);
+  assert.equal(demo.read("tickets").find(row=>row.id_ticket===policyQuery.id_ticket).resuelto_en,null);
+  assert.match((await send(`cancelar cita ${appointmentId}`)).reply,/¿Confirmas cancelar/);
+  assert.equal((await send("confirmo")).action,"remote_cancelled");
+  const cancelled=demo.read("citas").find(row=>row.id_cita===appointmentId);
+  assert.equal(cancelled.estado,"CANCELADA");
+  assert.equal(cancelled.id_ticket,policyQuery.id_ticket);
+  assert.equal(demo.read("tickets").find(row=>row.id_ticket===policyQuery.id_ticket).resuelto_en,null);
+  pass("Simulación políticas sin fuente, ticket y cita remota vinculada; consulta, reprogramación y cancelación conservan ticket sin resolver");
 const switchDemo=createDemoStore();
 const pendingPolicy=await switchDemo.conversation("Tengo una duda sobre vacaciones","switch-policy");
 assert.match(pendingPolicy.reply,/¿Quieres que pase tu duda a RH/);

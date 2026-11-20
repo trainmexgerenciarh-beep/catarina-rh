@@ -45,7 +45,11 @@ export function createDemoStore(){
     async findApplied(id){return receipts.get(id)?.result??null;},
     async listAvailable(input){return agenda.list({ticketId:input.ticketId,collaboratorId:input.collaboratorId,date:input.date,now:Date.now(),days:1}).map(s=>new Date(s).toISOString());},
     async execute(input){
-      const hash=commandFingerprint(input),prior=receipts.get(input.eventId);
+      // The shared persistence contract requires database BIGINT IDs; this
+      // isolated demo adapter maps its visibly synthetic appointment ID only
+      // for fingerprinting, while retaining the SIM-CITA ID in every result.
+      const fingerprintInput={...input,appointmentId:input.appointmentId?.replace(/^SIM-CITA-(\d+)$/,"$1")};
+      const hash=commandFingerprint(fingerprintInput),prior=receipts.get(input.eventId);
       if(prior){if(prior.hash!==hash)throw new Error("EVENT_CONFLICT");return prior.result;}
       const base={ticketId:input.ticketId,collaboratorId:input.collaboratorId,key:input.eventId,now:Date.now()};
       const a=input.operation==="RESERVAR"?agenda.book({...base,start:Date.parse(input.start!)}):
