@@ -125,7 +125,14 @@ assert(!missingPolicy.reply.includes("Resumen:")&&!missingPolicy.reply.includes(
 const policyTicket=await send("confirmo");assert.equal(demo.read("consultas").length,2);
 assert.match(policyTicket.reply,/ya pasé tu consulta a RH/);
 assert.match(policyTicket.reply,/Todavía no está reservada/);
-await send("sí");await send("1");const booked=await send("confirmo");assert.equal(booked.action,"remote_registered");
+  await send("sí");await send("1");const booked=await send("confirmo");assert.equal(booked.action,"remote_registered");
+const policyQuery=demo.read("consultas").find(row=>row.resultado==="documentacion faltante"&&row.id_ticket);
+assert(policyQuery,"The missing-policy consultation keeps its ticket link");
+const linkedTicket=demo.read("tickets").find(row=>row.id_ticket===policyQuery.id_ticket);
+assert(linkedTicket,"The remote appointment offer must retain the created ticket");
+const linkedRemoteAppointment=demo.read("citas").find(row=>row.id_ticket===policyQuery.id_ticket);
+assert(linkedRemoteAppointment&&linkedRemoteAppointment.modalidad==="REMOTA"&&linkedRemoteAppointment.estado==="PROGRAMADA",
+  "The confirmed remote appointment remains linked to the consultation ticket");
 pass("Simulación políticas sin fuente, consulta/faltante/ticket y cita remota");
 const switchDemo=createDemoStore();
 const pendingPolicy=await switchDemo.conversation("Tengo una duda sobre vacaciones","switch-policy");
