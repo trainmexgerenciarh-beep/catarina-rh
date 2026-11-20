@@ -46,7 +46,14 @@ const groundedAnswer=createGroundedAnswer(async request=>{
 source.biblioteca={v:1,kind:"document",driveId:"synthetic-document-only",status:"APROBADO",type:"POLITICA/PREGUNTAS_TRABAJADOR",hash:contentHash(extract),
   approval:{actor:"synthetic@example.invalid",at:"2026-01-01T12:00:00Z",hash:contentHash(extract),version:"TEST",scope:"Respuesta ficticia para trabajadores",fragments:[extract],validFrom:"2026-01-01"}};
 const grounded=await groundedAnswer("¿Las vacaciones requieren autorización previa?","Vacaciones",[source],async()=>extract);
-assert(grounded&&grounded.text.includes("La política exige autorización previa")&&!grounded.text.includes(extract)&&grounded.text.includes("versión TEST"));
+assert(grounded&&grounded.text.includes("La política exige autorización previa")&&!grounded.text.includes(extract)&&
+  !grounded.text.includes("Fuente:")&&!grounded.text.includes("versión TEST"));
+const noisyCitation=await createGroundedAnswer(async()=>({text:JSON.stringify({
+  answer:"La política exige autorización previa para solicitar vacaciones.\nFuente: POLÍTICA DE VACACIONES, versión 05.",
+  evidence:extract
+})}))("¿Las vacaciones requieren autorización previa?","Vacaciones",[source]);
+assert(!noisyCitation.text.includes("Fuente:")&&!noisyCitation.text.includes("versión 05"),
+  "Source/version remain administrative, not in the worker-facing answer");
 const timingExcerpt="La solicitud de vacaciones debe presentarse por escrito con al menos 10 días de anticipación.";
 const timingPolicy={...source,biblioteca:{...source.biblioteca,hash:contentHash(timingExcerpt),approval:{...source.biblioteca.approval,hash:contentHash(timingExcerpt),fragments:[timingExcerpt]}}};
 const beforeUnsupported=answerCalls;
