@@ -54,7 +54,13 @@ async function ticketFlow(c) {
   assert.equal(c.tickets.snapshot().length, 1);
 }
 async function selectFirst(c) {
-  assert.equal((await c.send("sí")).action, "agenda_options");
+  const weeks=await c.send("sí");assert.equal(weeks.action,"agenda_week_options");
+  assert.match(weeks.reply,/Esta semana|La próxima semana/);
+  const days=await c.send("1");assert.equal(days.action,"agenda_day_options");
+  assert.match(days.reply,/lunes|martes|miércoles|jueves|viernes/i);
+  const times=await c.send("1");assert.equal(times.action,"agenda_time_options");
+  assert.match(times.reply,/\d{2}:\d{2}–\d{2}:\d{2}/);
+  assert.doesNotMatch(times.reply,/\d{2}\/\d{2}\/\d{4}/);
   assert.equal((await c.send("1")).action, "agenda_confirmation");
 }
 
@@ -233,7 +239,7 @@ await test("Conversación revalida bloqueo y ocupación posteriores a la oferta"
   await selectFirst(c);
   c.agenda.setBlocks([{ fecha: monday, horaInicio: "14:00", horaFin: "14:01" }]);
   assert.equal((await c.send("confirmo")).action, "agenda_unavailable");
-  assert.equal((await c.send("opciones")).action, "agenda_options");
+  assert.equal((await c.send("opciones")).action, "agenda_week_options");
   assert.equal((await c.send("opciones 2026-02-30")).action, "agenda_error");
 });
 await test("Cancelar y reprogramar piden intención; no ambiguo no cambia; reprogramar conserva una ocupación", async () => {
@@ -247,7 +253,9 @@ await test("Cancelar y reprogramar piden intención; no ambiguo no cambia; repro
   assert.equal(c.agenda.snapshot()[0].status, "confirmada");
   assert.equal((await c.send("no")).action, "agenda_intent_declined");
   assert.equal((await c.send("reprogramar cita")).action, "agenda_confirm_intent");
-  assert.equal((await c.send("confirmo")).action, "agenda_options");
+  assert.equal((await c.send("confirmo")).action, "agenda_week_options");
+  await c.send("1");
+  await c.send("1");
   await c.send("1");
   assert.equal((await c.send("confirmo")).action, "agenda_registered");
   assert.equal(c.agenda.snapshot().length, 1);
@@ -258,6 +266,22 @@ await test("Cancelar y reprogramar piden intención; no ambiguo no cambia; repro
   assert.equal((await c.send("consultar cita")).action, "agenda_query");
   assert.deepEqual(c.agenda.forOwner(before[0].collaboratorId), []);
   assert.deepEqual(c.tickets.snapshot(), before);
+});
+await test("Opción 4 del menú muestra las citas y permite cancelarlas sin resolver el ticket", async () => {
+  const c = await conversation();
+  await ticketFlow(c);
+  await selectFirst(c);
+  await c.send("confirmo");
+  const appointment = c.agenda.snapshot()[0];
+  const menu = await c.send("menú principal");
+  assert.match(menu.reply, /4\. Consultar, cancelar o cambiar una cita programada/);
+  const management = await c.send("4");
+  assert.equal(management.action, "agenda_manage");
+  assert.match(management.reply, new RegExp(`Cita ${appointment.id}`));
+  assert.equal((await c.send(`cancelar cita ${appointment.id}`)).action, "agenda_confirm_intent");
+  assert.equal((await c.send("confirmo")).action, "agenda_cancelled");
+  assert.equal(c.agenda.snapshot()[0].status, "cancelada");
+  assert.equal(c.tickets.snapshot()[0].resolvedAt, null);
 });
 await test("Negativa expresa cierra sin cita/no resuelto; cancelar menú y silencio no cierran", async () => {
   for (const stage of ["offer", "select"]) {

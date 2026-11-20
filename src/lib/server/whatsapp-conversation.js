@@ -182,7 +182,7 @@ function showMainMenu(state, includeWelcome) {
   const welcome = includeWelcome
     ? "Hola, soy Catarina, recepcionista de RH."
     : "Menú principal:";
-  return `${welcome}\n\n¿En qué puedo ayudarte?\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Tu Voz en Trainmex: Quejas e Ideas de Mejora.\n\nTambién puedes contarme directamente qué necesitas.`;
+  return `${welcome}\n\n¿En qué puedo ayudarte?\n1. Tengo un problema con mi pago.\n2. Tengo una duda sobre reglas de RH.\n3. Tu Voz en Trainmex: Quejas e Ideas de Mejora.\n4. Consultar, cancelar o cambiar una cita programada.\n\nTambién puedes contarme directamente qué necesitas.`;
 }
 
 function voiceSubmenuText() {

@@ -50,8 +50,25 @@ export function plusDays(date: string, days: number): string {
   return new Date(dateNumber(date) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
+export function weekStart(date: string): string {
+  const weekday = new Date(dateNumber(date)).getUTCDay();
+  return plusDays(date, weekday === 0 ? -6 : 1 - weekday);
+}
+
+export function displayDay(date: string): string {
+  const value = new Intl.DateTimeFormat("es-MX", {
+    timeZone: "UTC", weekday: "long", day: "numeric", month: "long"
+  }).format(dateNumber(date) + 12 * 60 * 60_000);
+  return value.charAt(0).toLocaleUpperCase("es-MX") + value.slice(1);
+}
+
 export function clock(minute: number): string {
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+}
+
+export function displayTimeRange(start: number): string {
+  const beginning = parts(start), ending = parts(start + SLOT_MS);
+  return `${beginning.hour}:${beginning.minute}–${ending.hour}:${ending.minute}`;
 }
 
 export function displayAppointment(start: number): string {

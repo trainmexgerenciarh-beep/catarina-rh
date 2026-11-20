@@ -2,7 +2,7 @@ import type pg from "pg";
 import {createPersistentReception} from "./persistent-reception.ts";
 import {createNeonAgendaRepository} from "./neon-agenda.ts";
 import {normalizePayrollInput} from "./payroll-dates.ts";
-import {displayAppointment,localDate,plusDays} from "./agenda-time.ts";
+import {dateNumber,displayAppointment,displayDay,displayTimeRange,localDate,plusDays,weekStart} from "./agenda-time.ts";
 import type {ActiveService} from "./neon-collaborators.ts";
 import type {Identity} from "./payroll-tickets.ts";
 import type {Modality} from "./agenda-persistence-contract.ts";
@@ -18,7 +18,8 @@ export type Extension={
   voiceKind?:"complaint"|"suggestion";voiceWhen?:string;voiceWhat?:string;
   voiceInvolved?:string;voiceImpact?:string;voiceWitnesses?:string;
   voiceIdea?:string;voiceBenefit?:string;
-  choices?:string[];selected?:string;modality?:Modality;moving?:boolean;
+  choices?:string[];weekChoices?:string[];dayChoices?:string[];selectedDate?:string;
+  selected?:string;modality?:Modality;moving?:boolean;
   surveyId?:string;attended?:boolean;rating?:number;resolution?:string;
 };
 export type Prepared={classification:Classified;answer:{text:string;sourceId:string}|null};
@@ -64,15 +65,39 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
       `Qué mejoraría o resolvería: ${draft.voiceBenefit}`
     ].join("\n");
   };
+  async function slotsForDate(owner:string,day:string){
+    const slots=await agenda.listAvailable({
+      ticketId:extension.ticketId!,collaboratorId:owner,date:day,modality:extension.modality??"REMOTA"
+    });
+    if(!extension.moving||!extension.appointmentId)return slots;
+    const original=await agenda.findAppointment(extension.appointmentId,extension.ticketId!,owner);
+    return slots.filter(slot=>!original||Date.parse(slot)!==Date.parse(original.start));
+  }
+  async function daysForWeek(owner:string,start:string){
+    const days:string[]=[];
+    for(let i=0;i<7;i++){
+      const day=plusDays(start,i);
+        const weekday=new Date(dateNumber(day)).getUTCDay();
+        if(day>=localDate(now)&&weekday>0&&weekday<6&&(await slotsForDate(owner,day)).length)days.push(day);
+    }
+    return days;
+  }
   async function options(owner:string,date?:string){
-    extension.choices=[];
-    const first=date??localDate(now);
-    for(let i=0;i<14&&extension.choices.length<6;i++)
-      extension.choices.push(...await agenda.listAvailable({ticketId:extension.ticketId!,collaboratorId:owner,date:plusDays(first,i),modality:extension.modality??"REMOTA"}));
-    extension.choices=extension.choices.slice(0,6);extension.phase="select";
-    return reply("remote_options",extension.choices.length?
-      `Opciones ${extension.modality==="PRESENCIAL"?"presenciales":"a distancia"} con RH:\n${extension.choices.map((s,i)=>`${i+1}. ${displayAppointment(Date.parse(s))}`).join("\n")}\nElige un número. La atención la realiza RH fuera del chatbot; aún no hay reserva.`
-      :"No hay bloques disponibles. Puedes pedir «opciones AAAA-MM-DD» o volver al menú.");
+    if(date){
+      extension.selectedDate=date;extension.choices=await slotsForDate(owner,date);extension.phase="select-time";
+      return reply("remote_time_options",extension.choices.length
+        ?`Horarios disponibles para ${displayDay(date)}:\n${extension.choices.map((s,i)=>`${i+1}. ${displayTimeRange(Date.parse(s))}`).join("\n")}\nElige un horario.`
+        :"Ese día ya no tiene horarios disponibles. No cambié la cita. Vuelve a elegir semana y día.");
+    }
+    const current=weekStart(localDate(now));
+    extension.weekChoices=[];
+    for(const start of [current,plusDays(current,7)])
+      if((await daysForWeek(owner,start)).length)extension.weekChoices.push(start);
+    extension.phase="select-week";delete extension.selectedDate;
+    const choices=extension.weekChoices.map((start,i)=>`${i+1}. ${start===current?"Esta semana":"La próxima semana"}`);
+    return reply("remote_week_options",choices.length
+      ?`¿Qué semana te queda mejor?\n${choices.join("\n")}\nSelecciona una opción.`
+      :"No hay horarios disponibles esta semana ni la próxima. No cambié la cita.");
   }
   async function handleMessage(phone:string,text:string,key?:string) {
     const access=await deps.lookupIdentity(phone);
@@ -180,10 +205,27 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
         extension.phase="done";extension.appointmentId=a.appointmentId;delete extension.choices;delete extension.selected;delete extension.moving;
         return reply("remote_registered",`Cita ${a.modality==="PRESENCIAL"?"presencial":"a distancia"} registrada: ${displayAppointment(Date.parse(a.start))}. Ticket RH-${a.ticketId}. RH realizará la atención fuera del chatbot. El asunto no se marca resuelto.`);
       }
-      if(extension.phase==="select"){
-        if(/^opciones/.test(s))return options(owner,s.match(/\d{4}-\d{2}-\d{2}/)?.[0]);
+      if(/^opciones(?: \d{4}-\d{2}-\d{2})?$/.test(s))
+        return options(owner,s.match(/\d{4}-\d{2}-\d{2}/)?.[0]);
+      if(extension.phase==="select-week"){
+        const start=extension.weekChoices?.[Number(s)-1];
+        if(!start)return reply("remote_week_options","Elige una semana de las opciones.");
+        extension.dayChoices=await daysForWeek(owner,start);extension.phase="select-day";
+        return reply("remote_day_options",extension.dayChoices.length
+          ?`¿Qué día te acomoda?\n${extension.dayChoices.map((day,i)=>`${i+1}. ${displayDay(day)}`).join("\n")}\nSelecciona un día.`
+          :"Esa semana ya no tiene horarios disponibles. Elige otra semana.");
+      }
+      if(extension.phase==="select-day"){
+        const day=extension.dayChoices?.[Number(s)-1];
+        if(!day)return reply("remote_day_options","Elige un día de las opciones.");
+        extension.selectedDate=day;extension.choices=await slotsForDate(owner,day);extension.phase="select-time";
+        return reply("remote_time_options",extension.choices.length
+          ?`Horarios disponibles para ${displayDay(day)}:\n${extension.choices.map((slot,i)=>`${i+1}. ${displayTimeRange(Date.parse(slot))}`).join("\n")}\nElige un horario.`
+          :"Ese día ya no tiene horarios disponibles. Elige otro día.");
+      }
+      if(extension.phase==="select-time"){
         const choice=extension.choices?.[Number(s)-1];
-        if(!choice)return reply("selection","Elige un número de las opciones o pide «opciones AAAA-MM-DD».");
+        if(!choice)return reply("remote_time_options","Elige un horario de las opciones.");
         extension.selected=choice;extension.phase="booking";
         return reply("confirmation",`¿Confirmas ${displayAppointment(Date.parse(choice))}, ${extension.modality==="PRESENCIAL"?"presencial":"a distancia"}? Volveré a comprobar disponibilidad.`);
       }
@@ -203,7 +245,12 @@ export function createCompleteReception(deps:ReceptionDependencies,pool:pg.Pool,
     if(!extension.category) {
       const menu=manager.exportState(phone).menu as {category?:string;screen?:string}|null;
       const selected=classifiedService??null;
-      if(s==="2"&&(!menu?.category||menu.screen==="main_menu")||selected?.categoria==="Políticas y procedimientos"||s.includes("necesito atencion de rh")){
+      if(s==="4"&&(!menu?.category||menu.screen==="main_menu")){
+        const rows=await agenda.forOwner(owner);
+        return reply("agenda_manage",rows.length
+          ?`Tus citas programadas:\n${rows.map((a,i)=>`${i+1}. Cita ${a.id}: ${displayAppointment(Date.parse(a.start))}, ${a.modality}, ticket RH-${a.ticketId}.`).join("\n")}\nElige cancelar o cambiar la cita.`
+          :"No tienes citas programadas.");
+      }else if(s==="2"&&(!menu?.category||menu.screen==="main_menu")||selected?.categoria==="Políticas y procedimientos"||s.includes("necesito atencion de rh")){
         extension={category:"policies",phase:"explain",serviceId:selected?.idServicio};
         if(selected&&text.length>20){extension.summary=text.slice(0,1000);}
         else return reply("policies","Puedo orientarte sobre vacaciones, permisos, premios y procedimientos usando solo fuentes autorizadas. ¿Qué necesitas saber?");

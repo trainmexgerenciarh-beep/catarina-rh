@@ -25,3 +25,13 @@ sencillos, en lugar de respuestas rígidas o de texto libre para decisiones cerr
 
 **How to apply:** mantener estas preguntas en ese orden y mostrar botones para
 decisiones cerradas; no extender la oferta de cita a Tu Voz, que no genera citas.
+
+Para reservar, mostrar la selección en pasos: semana, día disponible y horario.
+No repetir la lista numerada de opciones encima de los botones. El menú principal
+debe permitir consultar, cancelar o cambiar una cita programada.
+
+**Why:** Trainmex pidió que elegir y modificar una cita sea claro y sencillo
+para quien usa la conversación.
+
+**How to apply:** ofrecer solo opciones válidas como botones y conservar la
+confirmación antes de registrar cambios.

@@ -10,6 +10,7 @@
   type Message = {
     from: 'catarina' | 'persona';
     text: string;
+    action?: string;
     choices?: { label: string; value: string }[];
     choicesUsed?: boolean;
   };
@@ -109,7 +110,8 @@
   const welcomeChoices = [
     { label: 'Tengo un problema con mi pago', value: '1' },
     { label: 'Tengo una duda sobre reglas de RH', value: '2' },
-    { label: 'Tu Voz en Trainmex: Quejas e Ideas de Mejora', value: '3' }
+    { label: 'Tu Voz en Trainmex: Quejas e Ideas de Mejora', value: '3' },
+    { label: 'Consultar, cancelar o cambiar una cita programada', value: '4' }
   ];
   const initialConversation: Message[] = [{
     from: 'catarina',
@@ -422,16 +424,21 @@
       { label: 'Quejas o denuncias', value: 'quejas o denuncias' },
       { label: 'Sugerencias e ideas de mejora', value: 'ideas y mejoras' }
     ];
-    if (action === 'agenda_choose_existing') {
+    if (['agenda_manage', 'agenda_choose_existing'].includes(String(action))) {
+      const appointments = [...reply.matchAll(/^[ \t]*\d+\.[ \t]*Cita[ \t]+([a-z0-9-]+):[ \t]*([^\n]+)/gim)];
+      if (appointments.length) return appointments.flatMap(match => [
+        { label: `Cancelar: ${match[2].trim()}`, value: `cancelar cita ${match[1]}` },
+        { label: `Cambiar: ${match[2].trim()}`, value: `reprogramar cita ${match[1]}` }
+      ]);
       return [...reply.matchAll(/^[ \t]*(\d+)\.[ \t]*(.+)$/gm)].flatMap(match => [
         { label: `Cancelar: ${match[2].trim()}`, value: `cancelar cita ${match[1]}` },
-        { label: `Reprogramar: ${match[2].trim()}`, value: `reprogramar cita ${match[1]}` }
+        { label: `Cambiar: ${match[2].trim()}`, value: `reprogramar cita ${match[1]}` }
       ]);
     }
     if (action === 'agenda_choose') {
-      return [...reply.matchAll(/Cita\s+(\d+):\s*([^\n]+)/g)].flatMap(match => [
+      return [...reply.matchAll(/Cita\s+([a-z0-9-]+):\s*([^\n]+)/gi)].flatMap(match => [
         { label: `Cancelar: ${match[2].trim()}`, value: `cancelar cita ${match[1]}` },
-        { label: `Reprogramar: ${match[2].trim()}`, value: `reprogramar cita ${match[1]}` }
+        { label: `Cambiar: ${match[2].trim()}`, value: `reprogramar cita ${match[1]}` }
       ]);
     }
     const numbered = [...reply.matchAll(/^[ \t]*(\d+)\.[ \t]*(.+)$/gm)];
@@ -451,6 +458,20 @@
         : [{ label: 'Confirmar', value: 'confirmo' }, { label: 'Corregir', value: 'corregir' }, { label: 'Cancelar', value: 'cancelar' }];
     }
     return undefined;
+  }
+
+  function conversationBubbleText(message: Message) {
+    const optionActions = new Set([
+      'agenda_options', 'remote_options', 'agenda_week_options', 'agenda_day_options',
+      'agenda_time_options', 'remote_week_options', 'remote_day_options', 'remote_time_options',
+      'agenda_manage', 'agenda_choose_existing', 'agenda_choose'
+    ]);
+    if (!optionActions.has(message.action ?? '')) return message.text;
+    return message.text
+      .replace(/^[ \t]*\d+\.[ \t].+$/gm, '')
+      .replace(/^[ \t]*Cita[ \t]+[a-z0-9-]+:.*$/gim, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   async function sendConversationText(text: string) {
@@ -478,7 +499,7 @@
         choices = priorOptions?.choices?.filter(choice => /^\d+$/.test(choice.value))
           .map(choice => ({ ...choice }));
       }
-      messages = [...messages, { from: 'catarina', text: payload.reply, choices }];
+      messages = [...messages, { from: 'catarina', text: payload.reply, action: String(payload.action), choices }];
       canReturnToMainMenu = !['menu', 'welcome', 'reset'].includes(String(payload.action));
     } catch (reason) {
       conversationError = reason instanceof Error ? reason.message : 'No se pudo enviar el mensaje.';
@@ -735,7 +756,7 @@
               {#each messages as message, messageIndex}
                 <div class:outgoing={message.from === 'persona'} class="bubble-row">
                   {#if message.from === 'catarina'}<span class="mini-mark">C</span>{/if}
-                  <p class="bubble">{message.text}</p>
+                  <p class="bubble">{conversationBubbleText(message)}</p>
                   {#if message.from === 'persona'}<span class="you-mark">TÚ</span>{/if}
                 </div>
                 {#if message.from === 'catarina' && message.choices && !message.choicesUsed}

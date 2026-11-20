@@ -5,7 +5,7 @@ import { AgendaError, type Appointment } from "./agenda-simulation.ts";
 import type { AgendaPort } from "./agenda-port.ts";
 import { PersistenceError, requireEventId } from "./persistence-unit.ts";
 import { createHash } from "node:crypto";
-import { dateNumber, displayAppointment } from "./agenda-time.ts";
+import { dateNumber, displayAppointment, displayDay, displayTimeRange, localDate, plusDays, weekStart } from "./agenda-time.ts";
 import { messageCache, periodic, stateSweeper, type MemoryOptions } from "./conversation-memory.ts";
 
 type Dependencies = Parameters<typeof createPayrollReception>[0];
@@ -13,8 +13,9 @@ type Tickets = TicketRepository;
 type PayrollResult = Awaited<ReturnType<ReturnType<typeof createPayrollReception>["handleMessage"]>>;
 type Context = {
   owner: string; activity: number; ticketId?: string;
-  phase: "idle" | "offer" | "select" | "confirm-book" | "confirm-cancel" | "confirm-move";
-  choices: number[]; selected?: number; appointmentId?: string; moving?: boolean; offset: number;
+  phase: "idle" | "offer" | "select-week" | "select-day" | "select-time" | "confirm-book" | "confirm-cancel" | "confirm-move";
+  choices: number[]; weekChoices: string[]; dayChoices: string[]; selectedDate?: string;
+  selected?: number; appointmentId?: string; moving?: boolean;
   confirmationKey?: string;
 };
 const YES = /^(?:si|si,? confirmo|confirmo|confirmar|de acuerdo)$/;
@@ -59,22 +60,55 @@ export function createAgendaReception(
   function describe(row: Appointment) {
     return `${displayAppointment(row.start)}, presencial, ticket ${persistent ? "NOM" : "SIM-NOM"}-${row.ticketId}.`;
   }
+  function addAppointmentMenu(result: PayrollResult) {
+    if (["menu", "welcome"].includes(result.action) &&
+      !result.reply.includes("Consultar, cancelar o cambiar una cita programada")) {
+      result.reply += "\n4. Consultar, cancelar o cambiar una cita programada.";
+    }
+    return result;
+  }
+  async function slotsForDate(context: Context, date: string) {
+    const active = context.moving ? await agenda.active(context.ticketId!, context.owner) : [];
+    const original = active.find(row => row.id === context.appointmentId);
+    return (await agenda.list({
+      ticketId: context.ticketId!, collaboratorId: context.owner, now: now(), date, days: 1,
+      excludeId: context.moving ? context.appointmentId : undefined
+    })).filter(start => !original || start !== original.start);
+  }
+
+  async function availableDays(context: Context, start: string) {
+    const today = localDate(now()), days: string[] = [];
+    for (let index = 0; index < 7; index++) {
+      const date = plusDays(start, index);
+      const weekday = new Date(dateNumber(date)).getUTCDay();
+      if (date >= today && weekday > 0 && weekday < 6 && (await slotsForDate(context, date)).length) days.push(date);
+    }
+    return days;
+  }
+
   async function offer(context: Context, date?: string): Promise<PayrollResult> {
     if (date) {
       try { dateNumber(date); } catch { throw new AgendaError("INVALID_DATE"); }
+      context.selectedDate = date;
+      context.choices = await slotsForDate(context, date);
+      context.phase = "select-time";
+      return reply("agenda_time_options", context.choices.length
+        ? `Horarios disponibles para ${displayDay(date)}:\n${context.choices.map((start,index)=>
+          `${index+1}. ${displayTimeRange(start)}`).join("\n")}\nElige un horario.`
+        : "Ese día ya no tiene horarios disponibles. No cambié la cita. Vuelve a elegir semana y día.");
     }
-    const active = await agenda.active(context.ticketId!, context.owner);
-    const all = (await agenda.list({
-      ticketId: context.ticketId!, collaboratorId: context.owner, now: now(), date,
-      excludeId: context.moving ? context.appointmentId : undefined
-    })).filter((start) => !context.moving || start !== active[0]?.start);
-    context.choices = all.slice(context.offset, context.offset + 6);
-    context.phase = "select";
-    delete context.selected;
-    return reply("agenda_options", context.choices.length
-      ? `Opciones presenciales:\n${context.choices.map((start, index) =>
-        `${index + 1}. ${displayAppointment(start)}`).join("\n")}\nElige un número; después pediré confirmación. Puedes pedir «más opciones» u «opciones AAAA-MM-DD».`
-      : "No hay bloques disponibles en esta búsqueda. No registré cambios. Puedes pedir «opciones AAAA-MM-DD» o volver al menú.");
+    const current = weekStart(localDate(now()));
+    context.weekChoices = [];
+    for (const start of [current, plusDays(current, 7)]) {
+      if ((await availableDays(context, start)).length) context.weekChoices.push(start);
+    }
+    context.phase = "select-week";
+    delete context.selectedDate;
+    const options = context.weekChoices.map((start,index)=>
+      `${index+1}. ${start===current?"Esta semana":"La próxima semana"}`);
+    return reply("agenda_week_options", options.length
+      ? `¿Qué semana te queda mejor?\n${options.join("\n")}\nSelecciona una opción.`
+      : "No hay horarios disponibles esta semana ni la próxima. No cambié la cita.");
   }
 
   async function process(phone: string, text: string, receivedAt: number, key?: string): Promise<PayrollResult> {
@@ -127,7 +161,7 @@ export function createAgendaReception(
     if (!context || context.owner !== owner) {
       // Reset only draft context. Tickets and agenda storage are independent.
       await payroll.handleMessage(phone, "cancelar");
-      context = { owner, activity: receivedAt, phase: "idle", choices: [], offset: 0 };
+      context = { owner, activity: receivedAt, phase: "idle", choices: [], weekChoices: [], dayChoices: [] };
     }
     contexts.set(phone, context);
     const input = normalizePayrollInput(text);
@@ -137,7 +171,7 @@ export function createAgendaReception(
         result=reply("agenda_context_required","No conservé un borrador confirmado para esa respuesta. Usa «agendar cita» para retomar una aclaración pendiente, «consultar cita» o «menú principal».");
       } else if (NAV.test(input)) {
         contexts.delete(phone);
-        result = await payroll.handleMessage(phone, text, key);
+        result = addAppointmentMenu(await payroll.handleMessage(phone, text, key));
       } else if (context.ticketId && !(await agenda.active(context.ticketId, owner)).length &&
         (/^(?:sin cita|no (?:quiero|deseo) agendar(?: una cita)?)$/.test(input) ||
           (context.phase === "offer" && input === "no"))) {
@@ -147,6 +181,11 @@ export function createAgendaReception(
         await payroll.handleMessage(phone, "cancelar");
         result = reply("payroll_closed_without_appointment",
           `Ticket ficticio ${closed.folio}: cerrado sin cita por negativa expresa. El asunto NO está resuelto.`);
+      } else if (input === "4" && !context.ticketId && context.phase === "idle") {
+        const rows = await agenda.forOwner(owner);
+        result = reply("agenda_manage", rows.length
+          ? `Tus citas programadas:\n${rows.map((row,index)=>`${index+1}. Cita ${row.id}: ${describe(row)}`).join("\n")}\nElige si quieres cancelar o cambiar una cita.`
+          : "No tienes citas programadas. Puedes volver al menú principal.");
       } else if (/^(?:consultar|ver|mi|mis) (?:cita|citas|reserva|reservas)$/.test(input)) {
         const rows = await agenda.forOwner(owner);
         context.phase = "idle";
@@ -159,13 +198,14 @@ export function createAgendaReception(
         result = reply("agenda_query", rows.length
           ? rows.map((row, index) => `${index + 1}. ${describe(row)}`).join("\n")
           : "No hay una cita simulada vigente a tu nombre.");
-      } else if (/^(?:cancelar|reprogramar)(?: (?:la|mi))? cita(?: \d+)?$/.test(input)) {
+      } else if (/^(?:cancelar|reprogramar)(?: (?:la|mi))? cita(?: (\d+|sim-cita-\d+))?$/.test(input)) {
         const rows = await agenda.forOwner(owner);
-        const number = input.match(/ (\d+)$/);
-        const selected = number ? rows[Number(number[1]) - 1] : rows.length === 1 ? rows[0] : undefined;
+        const id = input.match(/cita (\d+|sim-cita-\d+)$/)?.[1];
+        const selected = id ? rows.find(row=>row.id.toLowerCase()===id) ??
+          (/^\d+$/.test(id)?rows[Number(id)-1]:undefined) : rows.length === 1 ? rows[0] : undefined;
         if (!selected) {
           result = reply("agenda_choose_existing", rows.length
-            ? `${rows.map((row, index) => `${index + 1}. ${describe(row)}`).join("\n")}\nIndica «cancelar cita N» o «reprogramar cita N».`
+            ? `${rows.map((row, index) => `${index + 1}. Cita ${row.id}: ${describe(row)}`).join("\n")}\nElige una cita para cancelar o cambiar.`
             : "No hay una cita simulada vigente que pueda modificar.");
         } else {
           context.ticketId = selected.ticketId;
@@ -189,12 +229,10 @@ export function createAgendaReception(
           result = reply("agenda_cancelled", "Cita simulada cancelada. El ticket NO está resuelto.");
         } else {
           context.moving = true;
-          context.offset = 0;
           result = await offer(context);
         }
       } else if (context.phase === "confirm-book") {
         if (NO.test(input)) {
-          context.offset = 0;
           result = await offer(context);
         } else if (!YES.test(input)) {
           result = reply("agenda_confirmation_required", "Para registrar necesito «confirmo». Puedes responder «no» para elegir otra opción.");
@@ -212,20 +250,43 @@ export function createAgendaReception(
           result = reply("agenda_registered", `Cita registrada SOLO en el simulador: ${describe(booked)} El asunto NO está resuelto.`);
         }
       } else if (context.ticketId && (/^(?:mas|otras) opciones$/.test(input) || /^opciones(?: \d{4}-\d{2}-\d{2})?$/.test(input))) {
-        context.offset = /^(?:mas|otras)/.test(input) ? context.offset + 6 : 0;
         result = await offer(context, input.match(/\d{4}-\d{2}-\d{2}/)?.[0]);
-      } else if (context.phase === "select") {
+      } else if (context.phase === "select-week") {
+        const selection = input.match(/^(?:opcion )?(\d+)[.)]?$/);
+        const start = selection ? context.weekChoices[Number(selection[1]) - 1] : undefined;
+        if (!start) {
+          result = reply("agenda_week_options", "Elige una semana de las opciones. No registré cambios.");
+        } else {
+          context.dayChoices = await availableDays(context, start);
+          context.phase = "select-day";
+          result = reply("agenda_day_options", context.dayChoices.length
+            ? `¿Qué día te acomoda?\n${context.dayChoices.map((day,index)=>`${index+1}. ${displayDay(day)}`).join("\n")}\nSelecciona un día.`
+            : "Esa semana ya no tiene horarios disponibles. Elige otra semana.");
+        }
+      } else if (context.phase === "select-day") {
+        const selection = input.match(/^(?:opcion )?(\d+)[.)]?$/);
+        const date = selection ? context.dayChoices[Number(selection[1]) - 1] : undefined;
+        if (!date) {
+          result = reply("agenda_day_options", "Elige un día de las opciones. No registré cambios.");
+        } else {
+          context.selectedDate = date;
+          context.choices = await slotsForDate(context, date);
+          context.phase = "select-time";
+          result = reply("agenda_time_options", context.choices.length
+            ? `Horarios disponibles para ${displayDay(date)}:\n${context.choices.map((start,index)=>`${index+1}. ${displayTimeRange(start)}`).join("\n")}\nElige un horario.`
+            : "Ese día ya no tiene horarios disponibles. Elige otro día.");
+        }
+      } else if (context.phase === "select-time") {
         const selection = input.match(/^(?:opcion )?(\d+)[.)]?$/);
         const start = selection ? context.choices[Number(selection[1]) - 1] : undefined;
         if (start === undefined) {
-          result = reply("agenda_select", "Elige un número de las opciones o pide otras opciones. No registré cambios.");
+          result = reply("agenda_select", "Elige un horario de las opciones. No registré cambios.");
         } else {
           context.selected = start;
           context.phase = "confirm-book";
           result = reply("agenda_confirmation", `¿Confirmas ${context.moving ? "reprogramar a" : "reservar"} ${displayAppointment(start)}, presencial? Volveré a comprobar disponibilidad y anticipación antes de registrar.`);
         }
       } else if (context.ticketId && /^(?:si|agendar|agendar cita|reservar|reservar cita)$/.test(input)) {
-        context.offset = 0;
         context.moving = false;
         result = await offer(context);
       } else if (persistent && !context.ticketId &&
@@ -236,11 +297,11 @@ export function createAgendaReception(
         if(!chosen) result=reply("agenda_choose_existing_ticket",rows.length
           ? "Hay varias aclaraciones pendientes. Indica «agendar NOM-folio» con el folio correspondiente."
           : "No hay una aclaración pendiente sin reserva para retomar. Puedes iniciar desde el menú.");
-        else {context.ticketId=chosen.id;context.moving=false;context.offset=0;result=await offer(context);}
+        else {context.ticketId=chosen.id;context.moving=false;result=await offer(context);}
       } else if (context.ticketId && (await agenda.active(context.ticketId, owner)).length) {
         result = reply("agenda_existing", "Ya hay una cita simulada para este ticket. Puedes consultar cita, cancelar cita o reprogramar cita; el ticket no se cierra por esta respuesta.");
       } else {
-        result = await payroll.handleMessage(phone, text, key);
+        result = addAppointmentMenu(await payroll.handleMessage(phone, text, key));
         if (result.ticket && key) {
           const ticket = await tickets.findByConfirmation(key, owner);
           if (ticket && ticket.status === "pendiente de cita") {
@@ -260,8 +321,10 @@ export function createAgendaReception(
       if (error instanceof PersistenceError) throw error;
       if (!(error instanceof AgendaError)) throw error;
       if (["SLOT_UNAVAILABLE", "RESCHEDULE_UNAVAILABLE"].includes(error.code)) {
-        context.phase = "select";
+        context.phase = "select-week";
         context.choices = [];
+        context.weekChoices = [];
+        context.dayChoices = [];
         result = reply("agenda_unavailable", "La opción ya no está disponible o no cumple el margen de dos horas. No registré el cambio; si había reserva anterior, la conservé. Pide «opciones».");
       } else {
         result = reply("agenda_error", `No pude registrar la operación (${error.code}). No confirmo una nueva reserva. Puedes consultar cita o volver al menú.`);

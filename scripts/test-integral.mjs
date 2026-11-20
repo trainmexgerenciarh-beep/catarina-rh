@@ -125,7 +125,11 @@ assert(!missingPolicy.reply.includes("Resumen:")&&!missingPolicy.reply.includes(
 const policyTicket=await send("confirmo");assert.equal(demo.read("consultas").length,2);
 assert.match(policyTicket.reply,/ya pasé tu consulta a RH/);
 assert.match(policyTicket.reply,/Todavía no está reservada/);
-  await send("sí");await send("1");const booked=await send("confirmo");assert.equal(booked.action,"remote_registered");
+  assert.equal((await send("sí")).action,"remote_week_options");
+  assert.equal((await send("1")).action,"remote_day_options");
+  assert.equal((await send("1")).action,"remote_time_options");
+  assert.equal((await send("1")).action,"confirmation");
+  const booked=await send("confirmo");assert.equal(booked.action,"remote_registered");
 const policyQuery=demo.read("consultas").find(row=>row.resultado==="documentacion faltante"&&row.id_ticket);
 assert(policyQuery,"The missing-policy consultation keeps its ticket link");
 const linkedTicket=demo.read("tickets").find(row=>row.id_ticket===policyQuery.id_ticket);
@@ -136,7 +140,9 @@ assert(linkedTicket,"The remote appointment offer must retain the created ticket
   const appointmentId=linkedRemoteAppointment.id_cita;
   const reprogramIntent=await send(`reprogramar cita ${appointmentId}`);
   assert.equal(reprogramIntent.action,"remote_intent");
-  assert.equal((await send("confirmo")).action,"remote_options");
+  assert.equal((await send("confirmo")).action,"remote_week_options");
+  assert.equal((await send("1")).action,"remote_day_options");
+  assert.equal((await send("1")).action,"remote_time_options");
   assert.equal((await send("1")).action,"confirmation");
   assert.equal((await send("confirmo")).action,"remote_registered");
   const reprogrammed=demo.read("citas").filter(row=>row.id_ticket===policyQuery.id_ticket&&row.estado==="PROGRAMADA");
@@ -144,6 +150,10 @@ assert(linkedTicket,"The remote appointment offer must retain the created ticket
   assert.equal(reprogrammed[0].id_cita,appointmentId,"Rescheduling keeps the same appointment ID");
   assert.equal(reprogrammed[0].id_ticket,policyQuery.id_ticket);
   assert.equal(demo.read("tickets").find(row=>row.id_ticket===policyQuery.id_ticket).resuelto_en,null);
+  assert.match((await send("menú principal")).reply,/4\. Consultar, cancelar o cambiar una cita programada/);
+  const menuAppointments=await send("4");
+  assert.equal(menuAppointments.action,"agenda_manage");
+  assert.match(menuAppointments.reply,new RegExp(`Cita ${appointmentId}`));
   assert.match((await send(`cancelar cita ${appointmentId}`)).reply,/¿Confirmas cancelar/);
   assert.equal((await send("confirmo")).action,"remote_cancelled");
   const cancelled=demo.read("citas").find(row=>row.id_cita===appointmentId);
